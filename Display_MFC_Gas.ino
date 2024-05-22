@@ -22,9 +22,11 @@ byte messageIndex = 0;
 const byte buffSize = 40;
 char inputBuffer2[buffSize];  // Buffer para a entrada do display
 
-char messageFromPC[buffSize] = {0};
+char messageFromPC[buffSize] = { 0 };
 int intFromPC = 0;
-float floatFromPC = 0.0; // fraction of servo range to move
+float floatFromPC = 0.0;  // fraction of servo range to move
+
+int Event = 1;
 
 const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {  // Matriz de caracteres (mapeamento do teclado)
   { '1', '2', '3', 'A' },
@@ -49,31 +51,107 @@ void setup() {
 }
 
 void loop() {
+  getDataFromDisplay();
+}
+
+
+void getDataFromDisplay() {
 
   char leitura_teclas = teclado_personalizado.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (leitura_teclas == 'D') {
-    Serial.println("Mensagem recebida:");
-    Serial.println(inputBuffer2);
-    inputBuffer2[messageIndex] = 0;
-    messageIndex = 0;
-    parseData2();
-    for (int i = 0; i < buffSize; i++) {
-      inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
-    }
-    lcd.clear();
-  } else if (leitura_teclas != NO_KEY) {
-    if (messageIndex < buffSize) {
-      inputBuffer2[messageIndex++] = leitura_teclas;
-    } else {
-      // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
-      Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
+  if (Event == 1) {
+    lcd.setCursor(0, 0);
+    lcd.print("Escolha: 1 2 3 4");
+    //Serial.println("1 - SetPoint");
+    //Serial.println("2 - FluxMax");
+    //Serial.println("3 - FatorMFC");
+    //Serial.println("4 - FatorGas");
+    if (leitura_teclas == 'D') {
+      Serial.println("Mensagem recebida:");
+      Serial.println(inputBuffer2);
+      inputBuffer2[messageIndex] = 0;
+      messageIndex = 0;
+      int input;
+      input = atoi(inputBuffer2);
+      if (input == 1 || input == 2 || input == 3 || input == 4) {
+        parseData2();
+        for (int i = 0; i < buffSize; i++) {
+          inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+        }
+        lcd.clear();
+        Event = Event + 1;
+      }
+    } else if (leitura_teclas != NO_KEY) {
+      if (messageIndex < buffSize) {
+        inputBuffer2[messageIndex++] = leitura_teclas;
+      } else {
+        // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
+        Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
+      }
     }
   }
-  
+
+  else if (Event == 2) {
+    //Serial.println("Escolha uma opcao: ");
+    lcd.setCursor(0, 0);
+    lcd.println("1 - MFC1");
+    lcd.setCursor(0, 1);
+    lcd.println("2 - MFC2");
+
+    if (leitura_teclas == 'D') {
+      Serial.println("Mensagem recebida:");
+      Serial.println(inputBuffer2);
+      inputBuffer2[messageIndex] = 0;
+      messageIndex = 0;
+      int input2;
+      input2 = atoi(inputBuffer2);
+      if (input2 == 1 || input2 == 2) {
+        parseData2();
+        for (int i = 0; i < buffSize; i++) {
+          inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+        }
+        lcd.clear();
+        Event = Event + 1;
+      }
+    } else if (leitura_teclas != NO_KEY) {
+      if (messageIndex < buffSize) {
+        inputBuffer2[messageIndex++] = leitura_teclas;
+      } else {
+        // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
+        Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
+      }
+    }
+  }
+
+
+  else if (Event == 3) {
+    lcd.setCursor(0, 0);
+    lcd.println("Digite um valor:");
+    if (leitura_teclas == 'D') {
+      Serial.println("Mensagem recebida:");
+      Serial.println(inputBuffer2);
+      inputBuffer2[messageIndex] = 0;
+      messageIndex = 0;
+      parseData2();
+      for (int i = 0; i < buffSize; i++) {
+        inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+      }
+      lcd.clear();
+      Event = 1;
+    } else if (leitura_teclas != NO_KEY) {
+      if (messageIndex < buffSize) {
+        inputBuffer2[messageIndex++] = leitura_teclas;
+      } else {
+        // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
+        Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
+      }
+    }
+  }
+
 
   if (leitura_teclas) {  // Se alguma tecla foi pressionada
-    lcd.setCursor(a, b);
+    lcd.clear();
+    lcd.setCursor(a, b+1);
     //Serial.println(leitura_teclas);  // Imprime a tecla pressionada na porta serial
     if (b >= 2) {
       delay(100);
@@ -84,6 +162,9 @@ void loop() {
       b += 1;
     } else {
       a += 1;
+      if(a == 4) {
+        a = 0;
+      }
     }
     lcd.print(leitura_teclas);
   }
@@ -91,21 +172,15 @@ void loop() {
 
 void parseData2() {
 
-    // split the data into its parts
-    
-  char * strtokIndx; // this is used by strtok() as an index
-  
-  strtokIndx = strtok(inputBuffer2,"#");      // get the first part - the string
-  strcpy(messageFromPC, strtokIndx); // copy it to messageFromPC
-  
-  strtokIndx = strtok(NULL, "#"); // this continues where the previous call left off
-  intFromPC = atoi(strtokIndx);     // convert this part to an integer
-  
-  strtokIndx = strtok(NULL, "#"); 
-  floatFromPC = atof(strtokIndx);     // convert this part to a float
-
+  if (Event == 1) {
+    strcpy(messageFromPC, inputBuffer2);
+  } else if (Event == 2) {
+    intFromPC = atoi(inputBuffer2);
+  } else if (Event == 3) {
+    floatFromPC = atof(inputBuffer2);
+  }
+  Serial.println("Dados: ");
   Serial.println(messageFromPC);
   Serial.println(intFromPC);
   Serial.println(floatFromPC);
-
 }
