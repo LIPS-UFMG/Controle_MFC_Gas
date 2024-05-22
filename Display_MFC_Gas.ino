@@ -18,8 +18,13 @@
 
 const byte LINHAS = 4;   // Linhas do teclado
 const byte COLUNAS = 4;  // Colunas do teclado
+
+const int mainMenu = 1;
+const int selectMFC = 2;
+const int insertData = 3;
+
 byte messageIndex = 0;
-const byte buffSize = 40;
+const byte buffSize = 20;
 char inputBuffer2[buffSize];  // Buffer para a entrada do display
 
 char messageFromPC[buffSize] = { 0 };
@@ -52,6 +57,7 @@ void setup() {
 
 void loop() {
   getDataFromDisplay();
+  delay(30);
 }
 
 
@@ -59,7 +65,7 @@ void getDataFromDisplay() {
 
   char leitura_teclas = teclado_personalizado.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (Event == 1) {
+  if (Event == mainMenu) {
     lcd.setCursor(0, 0);
     lcd.print("Escolha: 1 2 3 4");
     //Serial.println("1 - SetPoint");
@@ -71,15 +77,22 @@ void getDataFromDisplay() {
       Serial.println(inputBuffer2);
       inputBuffer2[messageIndex] = 0;
       messageIndex = 0;
+      parseData2();
+
       int input;
       input = atoi(inputBuffer2);
       if (input == 1 || input == 2 || input == 3 || input == 4) {
-        parseData2();
         for (int i = 0; i < buffSize; i++) {
           inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
         }
         lcd.clear();
-        Event = Event + 1;
+        Event++;
+      }
+      else{
+        for (int i = 0; i < buffSize; i++) {
+          inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+        }
+        
       }
     } else if (leitura_teclas != NO_KEY) {
       if (messageIndex < buffSize) {
@@ -91,22 +104,21 @@ void getDataFromDisplay() {
     }
   }
 
-  else if (Event == 2) {
+  else if (Event == selectMFC) {
     //Serial.println("Escolha uma opcao: ");
     lcd.setCursor(0, 0);
-    lcd.println("1 - MFC1");
-    lcd.setCursor(0, 1);
-    lcd.println("2 - MFC2");
+    lcd.println("1-MFC1 2-MFC2");
 
     if (leitura_teclas == 'D') {
       Serial.println("Mensagem recebida:");
       Serial.println(inputBuffer2);
       inputBuffer2[messageIndex] = 0;
       messageIndex = 0;
+      parseData2();
+
       int input2;
-      input2 = atoi(inputBuffer2);
+      input2 = atof(inputBuffer2);
       if (input2 == 1 || input2 == 2) {
-        parseData2();
         for (int i = 0; i < buffSize; i++) {
           inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
         }
@@ -124,7 +136,7 @@ void getDataFromDisplay() {
   }
 
 
-  else if (Event == 3) {
+  else if (Event == insertData) {
     lcd.setCursor(0, 0);
     lcd.println("Digite um valor:");
     if (leitura_teclas == 'D') {
@@ -133,6 +145,7 @@ void getDataFromDisplay() {
       inputBuffer2[messageIndex] = 0;
       messageIndex = 0;
       parseData2();
+
       for (int i = 0; i < buffSize; i++) {
         inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
       }
@@ -140,7 +153,12 @@ void getDataFromDisplay() {
       Event = 1;
     } else if (leitura_teclas != NO_KEY) {
       if (messageIndex < buffSize) {
-        inputBuffer2[messageIndex++] = leitura_teclas;
+        Serial.print(leitura_teclas);
+        if (leitura_teclas == '#') {
+          inputBuffer2[messageIndex++] = '.';
+        } else {
+          inputBuffer2[messageIndex++] = leitura_teclas;
+        }
       } else {
         // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
         Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
@@ -151,36 +169,31 @@ void getDataFromDisplay() {
 
   if (leitura_teclas) {  // Se alguma tecla foi pressionada
     lcd.clear();
-    lcd.setCursor(a, b+1);
+    lcd.setCursor(0, 1);
     //Serial.println(leitura_teclas);  // Imprime a tecla pressionada na porta serial
-    if (b >= 2) {
-      delay(100);
-      lcd.clear();
-      b = 0;
-    } else if (a >= 15) {
+    if (a >= 15) {
       a = 0;
-      b += 1;
     } else {
       a += 1;
-      if(a == 4) {
-        a = 0;
-      }
     }
-    lcd.print(leitura_teclas);
+    lcd.print(inputBuffer2);
   }
 }
 
 void parseData2() {
-
+  delay(50);
   if (Event == 1) {
     strcpy(messageFromPC, inputBuffer2);
   } else if (Event == 2) {
     intFromPC = atoi(inputBuffer2);
   } else if (Event == 3) {
     floatFromPC = atof(inputBuffer2);
+    Serial.println("Dados: ");
+    Serial.print("A: ");
+    Serial.println(messageFromPC);
+    Serial.print("B: ");
+    Serial.println(intFromPC);
+    Serial.print("C: ");
+    Serial.println(floatFromPC);
   }
-  Serial.println("Dados: ");
-  Serial.println(messageFromPC);
-  Serial.println(intFromPC);
-  Serial.println(floatFromPC);
 }
