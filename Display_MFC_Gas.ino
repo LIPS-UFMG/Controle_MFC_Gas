@@ -22,6 +22,7 @@ const byte COLUNAS = 4;  // Colunas do teclado
 const int mainMenu = 1;
 const int selectMFC = 2;
 const int insertData = 3;
+const char endMarker = 'D';
 
 byte messageIndex = 0;
 const byte buffSize = 20;
@@ -48,7 +49,8 @@ byte PINOS_COLUNAS[COLUNAS] = { A2, A3, A4, A5 };  // Pinos de conexao com as co
 int a = 0;
 int b = 0;
 
-Keypad teclado_personalizado = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS, PINOS_COLUNAS, LINHAS, COLUNAS);  // Inicia teclado
+Keypad teclado_personalizado =
+  Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS, PINOS_COLUNAS, LINHAS, COLUNAS);  // Inicia teclado
 
 void setup() {
   Serial.begin(9600);  // Inicia porta serial
@@ -65,34 +67,31 @@ void getDataFromDisplay() {
 
   char leitura_teclas = teclado_personalizado.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (Event == mainMenu) {
+  if (Event == mainMenu) {  // tela do menu principal
     lcd.setCursor(0, 0);
     lcd.print("Escolha: 1 2 3 4");
     //Serial.println("1 - SetPoint");
     //Serial.println("2 - FluxMax");
     //Serial.println("3 - FatorMFC");
     //Serial.println("4 - FatorGas");
-    if (leitura_teclas == 'D') {
+    if (leitura_teclas == endMarker) {
       Serial.println("Mensagem recebida:");
       Serial.println(inputBuffer2);
       inputBuffer2[messageIndex] = 0;
       messageIndex = 0;
       parseData2();
-
       int input;
       input = atoi(inputBuffer2);
-      if (input == 1 || input == 2 || input == 3 || input == 4) {
-        for (int i = 0; i < buffSize; i++) {
-          inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+      if (input == 1 || input == 2 || input == 3 || input == 4) {  // caso entrada seja válida
+        for (int i = 0; i < buffSize; i++) {                       //loop para apagar buffer
+          inputBuffer2[i] = '\0';                                  // Preenche o buffer com caracteres nulos
         }
         lcd.clear();
         Event++;
-      }
-      else{
+      } else {  //exclui texto se entrada invalida
         for (int i = 0; i < buffSize; i++) {
           inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
         }
-        
       }
     } else if (leitura_teclas != NO_KEY) {
       if (messageIndex < buffSize) {
@@ -109,7 +108,7 @@ void getDataFromDisplay() {
     lcd.setCursor(0, 0);
     lcd.println("1-MFC1 2-MFC2");
 
-    if (leitura_teclas == 'D') {
+    if (leitura_teclas == endMarker) {
       Serial.println("Mensagem recebida:");
       Serial.println(inputBuffer2);
       inputBuffer2[messageIndex] = 0;
@@ -124,6 +123,10 @@ void getDataFromDisplay() {
         }
         lcd.clear();
         Event = Event + 1;
+      } else {
+        for (int i = 0; i < buffSize; i++) {
+          inputBuffer2[i] = '\0';  // Preenche o buffer com caracteres nulos
+        }
       }
     } else if (leitura_teclas != NO_KEY) {
       if (messageIndex < buffSize) {
@@ -139,7 +142,7 @@ void getDataFromDisplay() {
   else if (Event == insertData) {
     lcd.setCursor(0, 0);
     lcd.println("Digite um valor:");
-    if (leitura_teclas == 'D') {
+    if (leitura_teclas == endMarker) {
       Serial.println("Mensagem recebida:");
       Serial.println(inputBuffer2);
       inputBuffer2[messageIndex] = 0;
