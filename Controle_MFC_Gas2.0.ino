@@ -26,58 +26,55 @@
 #include <Keypad.h>         // Biblioteca do teclado
 #include <LiquidCrystal.h>  // Biblioteca do display
 
-const byte buffSize = 20;
-char inputBufferS[buffSize];                                                    // Buffer para a entrada do pc
-char inputBufferK[buffSize];                                                    // Buffer para a entrada do display
-const int mainMenu = 1, selectMFC = 2, insertData = 3, working = 4;             // Telas de interação do display
 int event = 1;                                                                  // Indice para telas de interação
-const int pc = 1, arduino = 2;                                                  // Fonte dos dados inseridos
+const int mainMenu = 1, selectMFC = 2, insertData = 3, working = 4,             // Telas de interação do display
+  pc = 1, arduino = 2;                                                          // Fonte dos dados inseridos
 const char point = '#', backMarker = 'B', clearMarker = 'C', doneMarker = 'D',  // Teclas especiais para teclado
   startMarker = '<', endMarker = '>';                                           // Teclas para comandos no pc
+bool readInProgress = false;
+bool newDataFromPC = false;
 byte bytesRecvd = 0;
 byte messageIndex = 0;
-boolean readInProgress = false;
-boolean newDataFromPC = false;
 
-char messageFromPC[buffSize] = { 0 };
-char messageFromPCAux[buffSize] = { 0 };
+const byte buffSize = 20;
+char inputBufferS[buffSize];             // Buffer para a entrada do pc
+char inputBufferK[buffSize];             // Buffer para a entrada do teclado
+char messageFromK[buffSize] = { 0 };     // Buffer do teclado
+char messageFromUser[buffSize] = { 0 };  // Mensagem do usuário
 
-int intFromPCAux = 0;
-int intFromPC = 0;
-float floatFromPC = 0.0;
+int MFC = 0, intFromPC = 0, intFromK = 0;  //
+float floatFromPC = 0.0;                   // Valores de configuração do MFC
 
-int MFC = 0;
-boolean SPMFC_update = false;
-boolean FluxMaxMFC_update = false;
-boolean FatorMFC_update = false;
-boolean FatorGas_update = false;
-boolean imprimeAjuda = false;
+bool printHelp = false,                              // Estado para imprimir ajuda
+  SPMFC_update = false, FluxMaxMFC_update = false,   //
+  FatorMFC_update = false, FatorGas_update = false;  // Parâmetros de uma MFC
 
-int amostra = 0;
-int intervalo = 3000;
+int amostra = 0, intervalo = 1000;  // Tempo para imprimir fluxo
 
 //***************************************************************************************************************************
 //Teclado e Display
 //***************************************************************************************************************************
 
-const byte LINHAS = 4;   // Linhas do teclado
-const byte COLUNAS = 4;  // Colunas do teclado
 
-const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {  // Matriz de caracteres (mapeamento do teclado)
+// Matriz de caracteres (mapeamento do teclado)
+const byte LINHAS = 4, COLUNAS = 4;
+const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {
   { '1', '2', '3', 'A' },
   { '4', '5', '6', 'B' },
   { '7', '8', '9', 'C' },
   { '*', '0', '#', 'D' }
 };
 
+// Pinos de conexão com o lcd
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
-byte PINOS_LINHAS[LINHAS] = { A0, A1, 7, 6 };      // Pinos de conexao com as linhas do teclado
-byte PINOS_COLUNAS[COLUNAS] = { A2, A3, A4, A5 };  // Pinos de conexao com as colunas do teclado
+// Pinos de conexao com teclado
+byte PINOS_LINHAS[LINHAS] = { A0, A1, 7, 6 };
+byte PINOS_COLUNAS[COLUNAS] = { A2, A3, A4, A5 };
 
-
+// Inicia teclado
 Keypad keypad = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS,
-                       PINOS_COLUNAS, LINHAS, COLUNAS);  // Inicia teclado
+                       PINOS_COLUNAS, LINHAS, COLUNAS);
 
 //***************************************************************************************************************************
 //MFCs
@@ -122,35 +119,34 @@ float Flux_Max1 = 2000, SPFlux1 = 0, Flux1 = 0,
 //      Flux_Max4 = 500, SPFlux4 = 0, Flux4 = 0, Flux4_Val = 0,
 //      Fator_MFC4 = 1, Fator_Gas_MFC4 = 1;
 
-
 //***************************************************************************************************************************
 //Rotinas Principais
 //***************************************************************************************************************************
 
 void setup() {
 
+  //Inicia porta serial
+  Serial.begin(9600);
 
-  Serial.begin(9600);  //Inicia Porta Serial
-  lcd.begin(16, 2);    //Inicia o lcd
+  //Inicia display
+  lcd.begin(16, 2);
 
+  // MFC1
   pinMode(SPFlux1_Pin, OUTPUT);
   pinMode(Vopen1_Pin, OUTPUT);
-
   digitalWrite(SPFlux1_Pin, 0);
   digitalWrite(Vopen1_Pin, 1);
-
   Flux_Max1 = Flux_Max1 * (Fator_MFC1 / Fator_Gas_MFC1);
 
+  // MFC2
   pinMode(SPFlux2_Pin, OUTPUT);
   pinMode(Vopen2_Pin, OUTPUT);
-
   digitalWrite(SPFlux2_Pin, 0);
   digitalWrite(Vopen2_Pin, 1);
-
   Flux_Max2 = Flux_Max2 * (Fator_MFC2 / Fator_Gas_MFC2);
 
+  // Mensagem inicial
   Serial.println("<Arduino is ready>");
-
   Serial.println(" ");
   Serial.println("* O R N E L A S  C O R P O R A T I O N *");
   Serial.println("Controlador de Gáses");
@@ -161,22 +157,22 @@ void setup() {
 }
 
 void loop() {
-  getDataFromPC();        // Recebe dados do serial
   getDataFromKeyboard();  // Recebe dados do teclado
-  configIno();            // Configura MFCs
-  replyToPC();            // Envia dados para o serial
+  getDataFromPC();        // Recebe dados do pc
+  configIno();            // Configura parametro a ser atualizado
+  configMFC();            // Atualiza valores nas MFCs
   Controle_MFC1();        // Controla MFC1
   Controle_MFC2();        // Controla MFC2
-  printToLcd();           // Imprime no LCD
-  PrintFluxo();           // Imprime Fluxo no serial
+  replyToPC();            // Imprime informações no pc
+  printToLcd();           // Imprime informações no display
 }
 
 
 //***************************************************************************************************************************
-//Rotinas de Comunicação Serial
+//Rotinas de Comunicação
 //***************************************************************************************************************************
 
-void getDataFromPC() {  // Recebe data no PC e salva no buffer
+void getDataFromPC() {  // Recebe data do PC e salva no buffer
 
   if (Serial.available() > 0) {
     char x = Serial.read();
@@ -262,7 +258,6 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
       if (readInProgress) {                  // Se ainda estiver lendo,
         inputBufferK[messageIndex++] = key;  // adiciona caracter inserido
-        readInProgress = false;
       }
 
     } else {  // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
@@ -272,34 +267,77 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
   }
 }
 
-void printToLcd() {  //imprime instrução no LCD
-  lcd.setCursor(0, 1);
-  lcd.print(inputBufferK);
+void printToLcd() {  //imprime no LCD
   lcd.setCursor(0, 0);
-  switch (event) {  // Imprime mensagem correspondente a tela
+  switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case mainMenu:
       lcd.print("Escolha: 1 2 3 4");
+      lcd.setCursor(0, 1);
+      lcd.print(inputBufferK);
       break;
     case selectMFC:
       lcd.println("1-MFC1 2-MFC2");
+      lcd.setCursor(0, 1);
+      lcd.print(inputBufferK);
       break;
     case insertData:
       lcd.println("Digite um valor:");
+      lcd.setCursor(0, 1);
+      lcd.print(inputBufferK);
       break;
     case working:
-      lcd.println("Em funcionamento");
+      if (SPMFC_update) {
+        lcd.print("SP MFC ");
+        lcd.print(MFC);
+        lcd.setCursor(0, 1);
+        lcd.println(floatFromPC);
+        delay(2000);
+        lcd.print("Conf: ");
+      }
+
+      if (FluxMaxMFC_update) {
+        lcd.print("FMax MFC ");
+        lcd.setCursor(0, 1);
+        lcd.print("Conf: ");
+        lcd.println(floatFromPC);
+        delay(2000);
+      }
+
+      if (FatorMFC_update) {
+        lcd.print("F MFC ");
+        lcd.setCursor(0, 1);
+        lcd.print("Conf: ");
+        lcd.println(floatFromPC);
+        delay(2000);
+      }
+
+      if (FatorGas_update) {
+        lcd.print("FG ");
+        lcd.setCursor(0, 1);
+        lcd.print("Conf: ");
+        lcd.println(floatFromPC);
+        delay(2000);
+      }
+
+      // Imprime informações do fluxo
+      lcd.setCursor(0, 0);
+      lcd.print("SP MFC 1: ");
+      lcd.print(SPFlux1);
       lcd.setCursor(0, 1);
-      lcd.print("A: ");
-      lcd.print(messageFromPC);
-      lcd.print("B: ");
-      lcd.print(intFromPC);
-      lcd.print("C: ");
-      lcd.print(floatFromPC);
+      lcd.print("Flux MFC 1:");
+      lcd.println(Flux1 * Fator_Gas_MFC1);
+
+      // lcd.print("SP MFC 2: ");
+      // lcd.print(SPFlux2);
+      // lcd.setCursor(0, 1);
+      // lcd.print("|Fluxo MFC 2:");
+      // lcd.println(Flux2 * Fator_Gas_MFC2);
       break;
   }
 }
 
-bool validData(char* buffer) {  // Realiza validação dos dados
+
+bool validData(char* buffer) {  // Realiza validação dos dados inseridos no teclado
 
   int input = atoi(buffer);
   bool ret = false;
@@ -320,14 +358,13 @@ bool validData(char* buffer) {  // Realiza validação dos dados
 
 //=============
 
-void parseData(int source) {  // Atualiza dados inseridos
-
+void parseData(int source) {  // Converte dados inseridos
 
   if (source == pc) {
     char* strtokIndx;
 
     strtokIndx = strtok(inputBufferS, ",");
-    strcpy(messageFromPC, strtokIndx);
+    strcpy(messageFromUser, strtokIndx);
 
     strtokIndx = strtok(NULL, ",");
     intFromPC = atoi(strtokIndx);
@@ -339,21 +376,20 @@ void parseData(int source) {  // Atualiza dados inseridos
   if (source == arduino) {
     switch (event) {
       case mainMenu:
-        strcpy(messageFromPCAux, inputBufferK);
+        strcpy(messageFromK, inputBufferK);
         break;
 
       case selectMFC:
-        intFromPCAux = atoi(inputBufferK);
+        intFromK = atoi(inputBufferK);
         break;
 
       case insertData:
-        newDataFromPC = true;
-        strcpy(messageFromPC, messageFromPCAux);
-        intFromPC = intFromPCAux;
+        strcpy(messageFromUser, messageFromK);
+        intFromPC = intFromK;
         floatFromPC = atof(inputBufferK);
         Serial.println("Dados: ");
         Serial.print("A: ");
-        Serial.println(messageFromPC);
+        Serial.println(messageFromUser);
         Serial.print("B: ");
         Serial.println(intFromPC);
         Serial.print("C: ");
@@ -367,7 +403,7 @@ void parseData(int source) {  // Atualiza dados inseridos
 
 //=============
 
-void replyToPC() {
+void replyToPC() {  // Imprime informações no pc
 
   if (newDataFromPC) {
     newDataFromPC = false;
@@ -400,8 +436,10 @@ void replyToPC() {
       Serial.println(floatFromPC);
     }
 
-    if (imprimeAjuda) {
-      imprimeAjuda = false;
+    Serial.print(printHelp);
+
+    if (printHelp) {
+      printHelp = false;
       Serial.println("# AJUDA #");
       Serial.println("Forma de digitar os comandos: <comando,numero do MFC,valor>");
       Serial.println("Exemplo: Quero modificar o setpoit do fluxo de gás do MFC 1.");
@@ -419,54 +457,69 @@ void replyToPC() {
       Serial.println("Ornelas Corporation");
     }
 
+
     Serial.println(" ");
+  }
+
+  if (amostra >= intervalo) {
+    amostra = 0;
+    Serial.print("SP MFC 1: ");
+    Serial.print(SPFlux1);
+    Serial.print(" | Fluxo MFC 1: ");
+    Serial.println(Flux1 * Fator_Gas_MFC1);
+
+    amostra = 0;
+    Serial.print("SP MFC 2: ");
+    Serial.print(SPFlux2);
+    Serial.print(" | Fluxo MFC 2: ");
+    Serial.println(Flux2 * Fator_Gas_MFC2);
+  } else {
+    amostra++;
   }
 }
 
 //=============
 
-void configIno() {
+void configIno() { // Configura parametro a ser atualizado
 
-  if (strcmp(messageFromPC, "sp") == 0 || strcmp(messageFromPC, "1") == 0) {
+  if (strcmp(messageFromUser, "sp") == 0 || strcmp(messageFromUser, "1") == 0) {
     MFC = intFromPC;
     SPMFC_update = true;
   } else {
     SPMFC_update = false;
   }
 
-  if (strcmp(messageFromPC, "fluxmax") == 0 || strcmp(messageFromPC, "2") == 0) {
+  if (strcmp(messageFromUser, "fluxmax") == 0 || strcmp(messageFromUser, "2") == 0) {
     MFC = intFromPC;
     FluxMaxMFC_update = true;
   } else {
     FluxMaxMFC_update = false;
   }
 
-  if (strcmp(messageFromPC, "fatormfc") == 0 || strcmp(messageFromPC, "3") == 0) {
+  if (strcmp(messageFromUser, "fatormfc") == 0 || strcmp(messageFromUser, "3") == 0) {
     MFC = intFromPC;
     FatorMFC_update = true;
   } else {
     FatorMFC_update = false;
   }
 
-  if (strcmp(messageFromPC, "fatorgas") == 0 || strcmp(messageFromPC, "4") == 0) {
+  if (strcmp(messageFromUser, "fatorgas") == 0 || strcmp(messageFromUser, "4") == 0) {
     MFC = intFromPC;
     FatorGas_update = true;
   } else {
     FatorGas_update = false;
   }
 
-  configMFC();
-
-  if (strcmp(messageFromPC, "ajuda") == 0) {
-    imprimeAjuda = true;
+  if (strcmp(messageFromUser, "ajuda") == 0) {
+    printHelp = true;
   } else {
-    imprimeAjuda = false;
+    printHelp = false;
   }
 }
 
 //=============
 
-void configMFC() {
+void configMFC() { // Atualiza valores nas MFCs
 
   switch (MFC) {
 
@@ -491,26 +544,9 @@ void configMFC() {
       FatorGas_update = false;
       break;
   }
-}
 
-//=============
-
-void PrintFluxo() {
-
-  if (amostra >= intervalo) {
-    amostra = 0;
-    Serial.print("SP MFC 1: ");
-    Serial.print(SPFlux1);
-    Serial.print(" | Fluxo MFC 1: ");
-    Serial.println(Flux1 * Fator_Gas_MFC1);
-
-    amostra = 0;
-    Serial.print("SP MFC 2: ");
-    Serial.print(SPFlux2);
-    Serial.print(" | Fluxo MFC 2: ");
-    Serial.println(Flux2 * Fator_Gas_MFC2);
-  } else {
-    amostra++;
+  for (int i = 0; i < buffSize; i++) {  // Limpa buffer
+    messageFromUser[i] = '\0';
   }
 }
 
