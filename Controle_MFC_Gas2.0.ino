@@ -36,11 +36,11 @@ bool newDataFromPC = false;
 byte bytesRecvd = 0;
 byte messageIndex = 0;
 
-const byte buffSize = 20;
-char inputBufferS[buffSize];             // Buffer para a entrada do pc
-char inputBufferK[buffSize];             // Buffer para a entrada do teclado
-char messageFromK[buffSize] = { 0 };     // Buffer do teclado
-char messageFromUser[buffSize] = { 0 };  // Mensagem do usuário
+const byte buffSize = 40, buffSizeK = 6;  // Tamanho do buffer do pc e do teclado, respectivamente
+char inputBufferK[buffSizeK];             // Buffer para a entrada do teclado
+char inputBufferS[buffSize];              // Buffer para a entrada do pc
+char messageFromK[buffSize] = { 0 };      // Buffer do teclado
+char messageFromUser[buffSize] = { 0 };   // Mensagem do usuário
 
 int MFC = 0, intFromPC = 0, intFromK = 0;  //
 float floatFromPC = 0.0;                   // Valores de configuração do MFC
@@ -62,7 +62,7 @@ const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {
   { '1', '2', '3', 'A' },
   { '4', '5', '6', 'B' },
   { '7', '8', '9', 'C' },
-  { '*', '0', '#', 'D' }
+  { '.', '0', '.', 'D' }
 };
 
 // Pinos de conexão com o lcd
@@ -163,8 +163,8 @@ void loop() {
   configMFC();            // Atualiza valores nas MFCs
   Controle_MFC1();        // Controla MFC1
   Controle_MFC2();        // Controla MFC2
-  replyToPC();            // Imprime informações no pc
   printToLcd();           // Imprime informações no display
+  replyToPC();            // Imprime informações no pc
 }
 
 
@@ -207,15 +207,31 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
   char key = keypad.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (key != NO_KEY) {              // Caso tecla seja precionada
-    if (messageIndex < buffSize) {  // Impede que a mensagem ultrapasse o limite
+  if (key != NO_KEY) {  // Caso tecla seja precionada
+    readInProgress = true;
 
-      readInProgress = true;
+    if (key == doneMarker) {          // Tecla D submete valor inserido
+      if (validData(inputBufferK)) {  // se dado inserido for válido
+        parseData(arduino);
+        if (event == working) {  // Caso processo tenha sido finalizado
+          event = 0;             // volta a tela inicial
+        }
+        event++;  // Passa para próxima tela
 
-      if (key == point) {                    // Tecla #
-        inputBufferK[messageIndex++] = '.';  // substituida por ponto
-        readInProgress = false;
+      } else {  // Se dado invalido
+        lcd.clear();
+        lcd.setCursor(0, 1);
+        lcd.print("Numero invalido");
+        delay(1000);
       }
+      for (int i = 0; i < buffSize; i++) {  // Limpa buffer
+        inputBufferK[i] = '\0';
+      }
+      messageIndex = 0;
+      readInProgress = false;
+    }
+
+    if (event != working) {  // Impede entrada no teclado caso esteja na ultima tela
 
       if (key == backMarker) {                // Tecla B, volta para tela anterior
         for (int i = 0; i < buffSize; i++) {  // Limpa buffer
@@ -228,40 +244,25 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         }
       }
 
-      if (key == clearMarker) {                          // Tecla C, apaga último caractere
-        if (messageIndex != "\0" && messageIndex > 0) {  // caso array não nulo
+      if (key == clearMarker) {  // Tecla C, apaga último caractere
+        if (messageIndex > 0) {  // caso array não nulo
           inputBufferK[--messageIndex] = '\0';
         }
         readInProgress = false;
       }
 
-      if (key == doneMarker) {          // Tecla D submete valor inserido
-        if (validData(inputBufferK)) {  // se dado inserido for válido
-          parseData(arduino);
-          if (event == working) {  // Caso processo tenha sido finalizado
-            event = 0;             // volta a tela inicial
+      if (readInProgress) {                                                   // Se ainda estiver lendo,
+        if (messageIndex < (buffSizeK - 1)) {                                 // Impede que a mensagem ultrapasse o limite do buffer
+          if (event == mainMenu || event == selectMFC || event == working) {  // Nestas telas limita para 1 caractere
+            inputBufferK[0] = key;                                            // adiciona caracter inserido
+            messageIndex = 1;
+          } else {
+            inputBufferK[messageIndex++] = key;  // adiciona caracter inserido
           }
-          messageIndex = 0;
-          event++;  // Passa para próxima tela
-
-        } else {  // Se dado invalido
-          lcd.clear();
-          lcd.setCursor(0, 1);
-          lcd.print("Numero invalido");
-          delay(1000);
+        } else {  // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
+          Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
         }
-        for (int i = 0; i < buffSize; i++) {  // Limpa buffer
-          inputBufferK[i] = '\0';
-        }
-        readInProgress = false;
       }
-
-      if (readInProgress) {                  // Se ainda estiver lendo,
-        inputBufferK[messageIndex++] = key;  // adiciona caracter inserido
-      }
-
-    } else {  // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
-      Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
     }
     lcd.clear();
   }
@@ -271,67 +272,50 @@ void printToLcd() {  //imprime no LCD
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case mainMenu:
-      lcd.print("Escolha: 1 2 3 4");
+      lcd.print("1-SetP 2-FlxM ");
       lcd.setCursor(0, 1);
+      lcd.print("3-FMax 4-FGas ");
       lcd.print(inputBufferK);
       break;
     case selectMFC:
-      lcd.println("1-MFC1 2-MFC2");
+      lcd.print("1-MFC1 2-MFC2");
       lcd.setCursor(0, 1);
       lcd.print(inputBufferK);
       break;
     case insertData:
-      lcd.println("Digite um valor:");
+      lcd.print("Digite um valor:");
       lcd.setCursor(0, 1);
       lcd.print(inputBufferK);
       break;
     case working:
-      if (SPMFC_update) {
-        lcd.print("SP MFC ");
+
+      if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {
+        if (SPMFC_update) { lcd.print("SetPoint MFC"); }
+        if (FluxMaxMFC_update) { lcd.print("FluxMax MFC"); }
+        if (FatorMFC_update) { lcd.print("FatorMFC MFC"); }
+        if (FatorGas_update) { lcd.print("FatorGas MFC"); }
         lcd.print(MFC);
         lcd.setCursor(0, 1);
-        lcd.println(floatFromPC);
-        delay(2000);
         lcd.print("Conf: ");
+        lcd.print(floatFromPC);
+        Serial.print("floatFromPC");
+        Serial.println(floatFromPC);
+        delay(3000);
       }
-
-      if (FluxMaxMFC_update) {
-        lcd.print("FMax MFC ");
+      if ((amostra == intervalo) || (amostra == (intervalo / 2))) {  // Imprime no lcd
+        lcd.setCursor(0, 0);                                         // com o dobro da frequência que é impresso no serial
+        lcd.print("MFC1  SP:");
+        lcd.print(SPFlux1);
         lcd.setCursor(0, 1);
-        lcd.print("Conf: ");
-        lcd.println(floatFromPC);
-        delay(2000);
+        lcd.print("     Flx:");
+        lcd.print(Flux1 * Fator_Gas_MFC1);
+        // lcd.setCursor(0, 2);
+        // lcd.print("SP MFC 2: ");
+        // lcd.print(SPFlux2);
+        // lcd.setCursor(0, 3);
+        // lcd.print("|Fluxo MFC 2:");
+        // lcd.print(Flux2 * Fator_Gas_MFC2);
       }
-
-      if (FatorMFC_update) {
-        lcd.print("F MFC ");
-        lcd.setCursor(0, 1);
-        lcd.print("Conf: ");
-        lcd.println(floatFromPC);
-        delay(2000);
-      }
-
-      if (FatorGas_update) {
-        lcd.print("FG ");
-        lcd.setCursor(0, 1);
-        lcd.print("Conf: ");
-        lcd.println(floatFromPC);
-        delay(2000);
-      }
-
-      // Imprime informações do fluxo
-      lcd.setCursor(0, 0);
-      lcd.print("SP MFC 1: ");
-      lcd.print(SPFlux1);
-      lcd.setCursor(0, 1);
-      lcd.print("Flux MFC 1:");
-      lcd.println(Flux1 * Fator_Gas_MFC1);
-
-      // lcd.print("SP MFC 2: ");
-      // lcd.print(SPFlux2);
-      // lcd.setCursor(0, 1);
-      // lcd.print("|Fluxo MFC 2:");
-      // lcd.println(Flux2 * Fator_Gas_MFC2);
       break;
   }
 }
@@ -341,6 +325,9 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
 
   int input = atoi(buffer);
   bool ret = false;
+
+  Serial.print("input: ");
+  Serial.println(input);
 
   switch (event) {
     case mainMenu:
@@ -396,6 +383,8 @@ void parseData(int source) {  // Converte dados inseridos
         Serial.println(floatFromPC);
         break;
     }
+    Serial.print("C: ");
+    Serial.println(floatFromPC);
   }
 }
 
@@ -412,9 +401,7 @@ void replyToPC() {  // Imprime informações no pc
 
     if (SPMFC_update) {
       SPMFC_update = false;
-      Serial.print("SP MFC ");
-      Serial.print(MFC);
-      Serial.print(" Configurado: ");
+      Serial.print("Set Point MFC Configurado: ");
       Serial.println(floatFromPC);
     }
 
@@ -463,16 +450,15 @@ void replyToPC() {  // Imprime informações no pc
 
   if (amostra >= intervalo) {
     amostra = 0;
-    Serial.print("SP MFC 1: ");
-    Serial.print(SPFlux1);
-    Serial.print(" | Fluxo MFC 1: ");
-    Serial.println(Flux1 * Fator_Gas_MFC1);
+    // Serial.print("SP MFC 1: ");
+    // Serial.print(SPFlux1);
+    // Serial.print(" | Fluxo MFC 1: ");
+    // Serial.println(Flux1 * Fator_Gas_MFC1);
 
-    amostra = 0;
-    Serial.print("SP MFC 2: ");
-    Serial.print(SPFlux2);
-    Serial.print(" | Fluxo MFC 2: ");
-    Serial.println(Flux2 * Fator_Gas_MFC2);
+    // Serial.print("SP MFC 2: ");
+    // Serial.print(SPFlux2);
+    // Serial.print(" | Fluxo MFC 2: ");
+    // Serial.println(Flux2 * Fator_Gas_MFC2);
   } else {
     amostra++;
   }
@@ -480,7 +466,7 @@ void replyToPC() {  // Imprime informações no pc
 
 //=============
 
-void configIno() { // Configura parametro a ser atualizado
+void configIno() {  // Configura parametro a ser atualizado
 
   if (strcmp(messageFromUser, "sp") == 0 || strcmp(messageFromUser, "1") == 0) {
     MFC = intFromPC;
@@ -519,7 +505,7 @@ void configIno() { // Configura parametro a ser atualizado
 
 //=============
 
-void configMFC() { // Atualiza valores nas MFCs
+void configMFC() {  // Atualiza valores nas MFCs
 
   switch (MFC) {
 
