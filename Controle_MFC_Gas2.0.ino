@@ -224,7 +224,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         lcd.print("Numero invalido");
         delay(1000);
       }
-      for (int i = 0; i < buffSize; i++) {  // Limpa buffer
+      for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
         inputBufferK[i] = '\0';
       }
       messageIndex = 0;
