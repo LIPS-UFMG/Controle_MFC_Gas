@@ -69,7 +69,7 @@ const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 // Pinos de conexao com teclado
-byte PINOS_LINHAS[LINHAS] = { A0, A1, 7, 6 };
+byte PINOS_LINHAS[LINHAS] = { 9, 8, 7, 6 };
 byte PINOS_COLUNAS[COLUNAS] = { A2, A3, A4, A5 };
 
 // Inicia teclado
@@ -81,13 +81,13 @@ Keypad keypad = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS,
 //***************************************************************************************************************************
 
 //Pinagem MFC 1
-#define SPFlux1_Pin 3
-#define Vopen1_Pin 2
+#define SPFlux1_Pin 13
+#define Vopen1_Pin 10
 #define Flux1_Pin A0
 
 //Pinagem MFC 2
-#define SPFlux2_Pin 4
-#define Vopen2_Pin 5
+#define SPFlux2_Pin 0
+#define Vopen2_Pin 1
 #define Flux2_Pin A1
 /*
 //Pinagem MFC 3
@@ -140,6 +140,7 @@ void setup() {
 
   // MFC2
   pinMode(SPFlux2_Pin, OUTPUT);
+  
   pinMode(Vopen2_Pin, OUTPUT);
   digitalWrite(SPFlux2_Pin, 0);
   digitalWrite(Vopen2_Pin, 1);
@@ -213,6 +214,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
     if (key == doneMarker) {          // Tecla D submete valor inserido
       if (validData(inputBufferK)) {  // se dado inserido for válido
         parseData(arduino);
+        newDataFromPC = true;
         if (event == working) {  // Caso processo tenha sido finalizado
           event = 0;             // volta a tela inicial
         }
@@ -272,9 +274,9 @@ void printToLcd() {  //imprime no LCD
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case mainMenu:
-      lcd.print("1-SetP 2-FlxM ");
+      lcd.print("1-SetP  2-FluxM ");
       lcd.setCursor(0, 1);
-      lcd.print("3-FMax 4-FGas ");
+      lcd.print("3-FMFC 4-FGas ");
       lcd.print(inputBufferK);
       break;
     case selectMFC:
@@ -298,9 +300,9 @@ void printToLcd() {  //imprime no LCD
         lcd.setCursor(0, 1);
         lcd.print("Conf: ");
         lcd.print(floatFromPC);
-        Serial.print("floatFromPC");
-        Serial.println(floatFromPC);
-        delay(3000);
+        //Serial.print("floatFromPC");
+        //Serial.println(floatFromPC);
+        delay(2000);
       }
       if ((amostra == intervalo) || (amostra == (intervalo / 2))) {  // Imprime no lcd
         lcd.setCursor(0, 0);                                         // com o dobro da frequência que é impresso no serial
@@ -326,8 +328,8 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
   int input = atoi(buffer);
   bool ret = false;
 
-  Serial.print("input: ");
-  Serial.println(input);
+  //Serial.print("input: ");
+  //Serial.println(input);
 
   switch (event) {
     case mainMenu:
@@ -383,8 +385,8 @@ void parseData(int source) {  // Converte dados inseridos
         Serial.println(floatFromPC);
         break;
     }
-    Serial.print("C: ");
-    Serial.println(floatFromPC);
+    //Serial.print("C: ");
+    //Serial.println(floatFromPC);
   }
 }
 
@@ -423,7 +425,7 @@ void replyToPC() {  // Imprime informações no pc
       Serial.println(floatFromPC);
     }
 
-    Serial.print(printHelp);
+    //Serial.print(printHelp);
 
     if (printHelp) {
       printHelp = false;
@@ -450,15 +452,16 @@ void replyToPC() {  // Imprime informações no pc
 
   if (amostra >= intervalo) {
     amostra = 0;
-    // Serial.print("SP MFC 1: ");
-    // Serial.print(SPFlux1);
-    // Serial.print(" | Fluxo MFC 1: ");
-    // Serial.println(Flux1 * Fator_Gas_MFC1);
+     Serial.print("SP MFC 1: ");
+     Serial.print(SPFlux1);
+     Serial.print(" | Fluxo MFC 1: ");
+     Serial.println(Flux1 * Fator_Gas_MFC1);
 
-    // Serial.print("SP MFC 2: ");
-    // Serial.print(SPFlux2);
-    // Serial.print(" | Fluxo MFC 2: ");
-    // Serial.println(Flux2 * Fator_Gas_MFC2);
+     Serial.print("SP MFC 2: ");
+     Serial.print(SPFlux2);
+     Serial.print(" | Fluxo MFC 2: ");
+     Serial.println(Flux2 * Fator_Gas_MFC2);
+
   } else {
     amostra++;
   }
