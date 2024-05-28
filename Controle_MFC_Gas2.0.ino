@@ -31,11 +31,11 @@ const int mainMenu = 1, selectMFC = 2, insertData = 3, working = 4,             
   pc = 1, arduino = 2;                                                          // Fonte dos dados inseridos
 const char point = '#', backMarker = 'B', clearMarker = 'C', doneMarker = 'D',  // Teclas especiais para teclado
   startMarker = '<', endMarker = '>';                                           // Teclas para comandos no pc
-bool readInProgress = false;
-bool newDataFromPC = false;
-byte bytesRecvd = 0;
-byte messageIndex = 0;
+bool readInProgress = false;                                                    // Indica estado da leitura
+bool newDataFromPC = false;                                                     // Simboliza se houve inserção de dados pelo usuario
+byte bytesRecvd = 0;                                                            // Tamanho da mensagem recebida
 
+byte messageIndex = 0;                    // Indice para leitura da mensagem
 const byte buffSize = 40, buffSizeK = 6;  // Tamanho do buffer do pc e do teclado, respectivamente
 char inputBufferK[buffSizeK];             // Buffer para a entrada do teclado
 char inputBufferS[buffSize];              // Buffer para a entrada do pc
@@ -59,7 +59,7 @@ int amostra = 0, intervalo = 1000;  // Tempo para imprimir fluxo
 // Matriz de caracteres (mapeamento do teclado)
 const byte LINHAS = 4, COLUNAS = 4;
 const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {
-  { '1', '2', '3', 'A' },
+  { '1', '2', '3', '.' },
   { '4', '5', '6', 'B' },
   { '7', '8', '9', 'C' },
   { '.', '0', '.', 'D' }
@@ -140,7 +140,6 @@ void setup() {
 
   // MFC2
   pinMode(SPFlux2_Pin, OUTPUT);
-
   pinMode(Vopen2_Pin, OUTPUT);
   digitalWrite(SPFlux2_Pin, 0);
   digitalWrite(Vopen2_Pin, 1);
@@ -180,7 +179,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
 
   switch (event) {
     case mainMenu:
-      ret = (input == 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4
+      ret = (input == 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4 no menu principal
       break;
     case selectMFC:
       ret = (input == 1 || input == 2);  // Só permite selecionar entre 2 MFCs
@@ -193,22 +192,22 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
 
 //=============
 
-void parseData(int source) {  // Converte dados inseridos
+void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
-  if (source == pc) {
+  if (source == pc) {  // Trata dados se foram inseridos pelo computador
     char* strtokIndx;
 
-    strtokIndx = strtok(inputBufferS, ","); 
+    strtokIndx = strtok(inputBufferS, ",");
     strcpy(messageFromUser, strtokIndx);
 
     strtokIndx = strtok(NULL, ",");
     intFromPC = atoi(strtokIndx);
-    
+
     strtokIndx = strtok(NULL, ",");
     floatFromPC = atof(strtokIndx);
   }
 
-  if (source == arduino) {
+  if (source == arduino) {  // Trata dados se foram inseridos pelo arduino
     switch (event) {
       case mainMenu:
         strcpy(messageFromK, inputBufferK);
@@ -231,8 +230,6 @@ void parseData(int source) {  // Converte dados inseridos
         Serial.println(floatFromPC);
         break;
     }
-    //Serial.print("C: ");
-    //Serial.println(floatFromPC);
   }
 }
 
@@ -267,7 +264,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
       readInProgress = false;
     }
 
-    if (event != working) {  // Impede entrada no teclado caso esteja na ultima tela
+    if (event != working) {  // Impede entrada no teclado caso esteja na ultima tela, além de doneMarker
 
       if (key == backMarker) {                // Tecla B, volta para tela anterior
         for (int i = 0; i < buffSize; i++) {  // Limpa buffer
@@ -289,8 +286,8 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
       if (readInProgress) {                                                   // Se ainda estiver lendo,
         if (messageIndex < (buffSizeK - 1)) {                                 // Impede que a mensagem ultrapasse o limite do buffer
-          if (event == mainMenu || event == selectMFC || event == working) {  // Nestas telas limita para 1 caractere
-            inputBufferK[0] = key;                                            // adiciona caracter inserido
+          if (event == mainMenu || event == selectMFC || event == working) {  // Nestas telas limite para 1 caractere
+            inputBufferK[0] = key;                                            // Adiciona caracter inserido
             messageIndex = 1;
           } else {
             inputBufferK[messageIndex++] = key;  // adiciona caracter inserido
@@ -426,7 +423,7 @@ void printToLcd() {  //imprime no LCD
 
 //=============
 
-void replyToPC() {  // Imprime informações no pc
+void replyToPC() {  // Imprime informações no serial (pc)
 
   if (newDataFromPC) {
     newDataFromPC = false;
@@ -501,39 +498,32 @@ void configMFC() {  // Atualiza valores nas MFCs
   switch (MFC) {
 
     case 1:
-      if (SPMFC_update) {
-        SPFlux1 = floatFromPC;  // SPFlux1 - Fluxo Real
+      if (SPMFC_update) { SPFlux1 = floatFromPC; }
+      if (FluxMaxMFC_update) { Flux_Max1 = floatFromPC; }
+      if (FatorMFC_update) { Fator_MFC1 = floatFromPC; }
+      if (FatorGas_update) { Fator_Gas_MFC1 = floatFromPC; }
+
+      if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {  //
+        SPFlux1_Out = (255 * SPFlux1 * (Fator_MFC1 / Fator_Gas_MFC1)) / Flux_Max1;    // Regra de 3 simples
         SPMFC_update = false;
-      }
-      if (FluxMaxMFC_update) {
-        Flux_Max1 = floatFromPC;
         FluxMaxMFC_update = false;
-      }
-      if (FatorMFC_update) {
-        Fator_MFC1 = floatFromPC;
         FatorMFC_update = false;
-      }
-      if (FatorGas_update) {
-        Fator_Gas_MFC1 = floatFromPC;
         FatorGas_update = false;
       }
+
       break;
 
     case 2:
-      if (SPMFC_update) {
-        SPFlux2 = floatFromPC;  // SPFlux2 - Fluxo Real
+      if (SPMFC_update) { SPFlux2 = floatFromPC; }
+      if (FluxMaxMFC_update) { Flux_Max2 = floatFromPC; }
+      if (FatorMFC_update) { Fator_MFC2 = floatFromPC; }
+      if (FatorGas_update) { Fator_Gas_MFC2 = floatFromPC; }
+
+      if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {  //
+        SPFlux2_Out = (255 * SPFlux2 * (Fator_MFC2 / Fator_Gas_MFC2)) / Flux_Max2;    // Regra de 3 simples
         SPMFC_update = false;
-      }
-      if (FluxMaxMFC_update) {
-        Flux_Max2 = floatFromPC;
         FluxMaxMFC_update = false;
-      }
-      if (FatorMFC_update) {
-        Fator_MFC2 = floatFromPC;
         FatorMFC_update = false;
-      }
-      if (FatorGas_update) {
-        Fator_Gas_MFC2 = floatFromPC;
         FatorGas_update = false;
       }
       break;
@@ -556,19 +546,13 @@ void configMFC() {  // Atualiza valores nas MFCs
 //***************************************************************************************************************************
 
 void Controle_MFC1() {
-
-  SPFlux1_Out = (255 * SPFlux1 * (Fator_MFC1 / Fator_Gas_MFC1)) / Flux_Max1;  // Regra de 3 simples
   analogWrite(SPFlux1_Pin, SPFlux1_Out);
-
   Flux1_Val = analogRead(Flux1_Pin);
   Flux1 = (Flux1_Val * Flux_Max1) / 1024;
 }
 
 void Controle_MFC2() {
-
-  SPFlux2_Out = (255 * SPFlux2 * (Fator_MFC2 / Fator_Gas_MFC2)) / Flux_Max2;  // Regra de 3 simples
   analogWrite(SPFlux2_Pin, SPFlux2_Out);
-
   Flux2_Val = analogRead(Flux2_Pin);
   Flux2 = (Flux2_Val * Flux_Max2) / 1024;
 }
