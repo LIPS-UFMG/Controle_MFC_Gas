@@ -266,7 +266,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (event != working) {  // Impede entrada no teclado caso esteja na ultima tela, além de doneMarker
 
-      if (key == backMarker) {                // Tecla B, volta para tela anterior
+      if (key == backMarker) {                 // Tecla B, volta para tela anterior
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           inputBufferK[i] = '\0';
         }
