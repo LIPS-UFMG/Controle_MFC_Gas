@@ -411,16 +411,34 @@ void configIno() {  // Configura parametro a ser atualizado
 void printToLcd() {  // Imprime no LCD
 
   lcd.setCursor(0, 0);
+  Serial.println(inputBufferK[0]);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case config:
-      lcd.setCursor(0, 0);
-      lcd.print(" 1 SetPoint");
-      lcd.setCursor(0, 1);
-      lcd.print(" 2 FluxoMax");
-      lcd.setCursor(0, 2);
-      lcd.print(" 3 FatorMFC");
-      lcd.setCursor(0, 3);
-      lcd.print(" 4 FatorGas");
+      switch (inputBufferK[0]) {
+        case '1':
+          lcd.print("->");
+          break;
+        case '2':
+          lcd.setCursor(0, 1);
+          lcd.print("->");
+          break;
+        case '3':
+          lcd.setCursor(0, 2);
+          lcd.print("->");
+          break;
+        case '4':
+          lcd.setCursor(0, 3);
+          lcd.print("->");
+          break;
+      }
+      lcd.setCursor(2, 0);
+      lcd.print("1-SetPoint");
+      lcd.setCursor(2, 1);
+      lcd.print("2-FluxoMax");
+      lcd.setCursor(2, 2);
+      lcd.print("3-FatorMFC");
+      lcd.setCursor(2, 3);
+      lcd.print("4-FatorGas");
 
       lcd.setCursor(17, 3);
       lcd.print(inputBufferK);
@@ -477,43 +495,71 @@ void printToLcd() {  // Imprime no LCD
 
     case infoFlux:
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {
-        if (SPMFC_update) { lcd.print("SetPoint MFC"); }
-        if (FluxMaxMFC_update) { lcd.print("FluxMax MFC"); }
-        if (FatorMFC_update) { lcd.print("FatorMFC MFC"); }
-        if (FatorGas_update) { lcd.print("FatorGas MFC"); }
-        lcd.print("Config:");
-
-        lcd.setCursor(0, 3);
-        lcd.print(messageFromUser);
-        lcd.print(",");
+        // if (SPMFC_update) { lcd.print("SetPoint"); }
+        // if (FluxMaxMFC_update) { lcd.print("FluxMax"); }
+        // if (FatorMFC_update) { lcd.print("FatorMFC"); }
+        // if (FatorGas_update) { lcd.print("FatorGas"); }
+        lcd.setCursor(0, 1);
+        lcd.print("Config: ");
+        lcd.print("MFC");
         lcd.print(MFC);
-        lcd.print(",");
-        lcd.print(floatFromUser);
-
-        delay(1000);
-      }
-
-      if ((amostra == intervalo)) {  // com o dobro da frequencia do serial
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("MFC1:");
-        lcd.print(SPFlux1);
-        lcd.print(" | ");
-        lcd.print(Flux1 * Fator_Gas_MFC1);
 
         lcd.setCursor(0, 2);
-        lcd.print("MFC2:");
+        switch (messageFromUser[0]) {
+          case '1':
+            lcd.print("SetPoint");
+            break;
+          case '2':
+            lcd.print("FluxoMax");
+            break;
+          case '3':
+            lcd.print("FatorMFC");
+            break;
+          case '4':
+            lcd.print("FatorGas");
+            break;
+        }
+        lcd.print("->");
+        lcd.print(floatFromUser);
+
+        delay(5000);
+      }
+
+      if ((amostra == intervalo)) {  //
+
+        float trueFlux1 = Flux1 * Fator_Gas_MFC1;
+        float trueFlux2 = Flux2 * Fator_Gas_MFC2;
+
+
+        lcd.clear();
+
+        lcd.print("MFC|SetPoint|Fluxo");
+
+        lcd.setCursor(0, 1);
+        lcd.print(" 1 |");
+        lcd.print(SPFlux1);
+        lcd.setCursor(12, 1);
+        lcd.print("|");
+        lcd.print(trueFlux1);
+
+        lcd.setCursor(0, 2);
+        lcd.print(" 2 |");
         lcd.print(SPFlux2);
-        lcd.print(" | ");
-        lcd.print(Flux2 * Fator_Gas_MFC2);
+        lcd.setCursor(12, 2);
+        lcd.print("|");
+        lcd.print(trueFlux2);
+
+
+        lcd.setCursor(0, 3);
+        lcd.print("=================");
+        lcd.print("1/3");
+
         /*
         lcd.print("MFC3: SP");
         lcd.print(SPFlux3);
         lcd.print(" Flux:");
         lcd.print(Flux3 * Fator_Gas_MFC3);
         */
-        lcd.setCursor(17, 3);
-        lcd.print("1/3");
       }
       break;
 
