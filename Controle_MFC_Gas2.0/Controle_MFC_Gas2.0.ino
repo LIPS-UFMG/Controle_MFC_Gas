@@ -28,13 +28,13 @@
 #include <LiquidCrystal_I2C.h>  //
 #include <Wire.h>               // Biblioteca do adaptador i2c do display
 
-int event = 1;  // Indice para telas de interação
+int event = 4;  // Indice começa mostrando informações do fluxo
 
 const int
   pc = 1,
   arduino = 2,  // Fonte dos dados inseridos
 
-  mainMenu = 1,
+  config = 1,
   selectMFC = 2, insertData = 3,             // Telas de interação do display
   infoFlux = 4, infoMFC1 = 5, infoMFC2 = 6;  // Telas com informações dos MFCs
 // infoMFC3 = 8;
@@ -204,8 +204,8 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
   bool ret = false;
 
   switch (event) {
-    case mainMenu:
-      ret = (input <= 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4 no menu principal
+    case config:
+      ret = (input == 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4 no menu principal
       break;
     case selectMFC:
       ret = (input == 1 || input == 2);  // Só permite selecionar entre 2 MFCs
@@ -239,7 +239,7 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
   if (source == arduino) {  // Trata dados se foram inseridos pelo arduino
     switch (event) {
-      case mainMenu:
+      case config:
         strcpy(messageFromK, inputBufferK);
         break;
 
@@ -296,17 +296,19 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event >= infoFlux) {
-        event = mainMenu;
+      if (event == config) {
+        event = infoFlux;
+      } else if (event >= infoFlux) {
+        event = config;
+      } else {
+        event--;
       }
+
       for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
         inputBufferK[i] = '\0';
       }
       messageIndex = 0;
       readInProgress = false;
-      if (event != mainMenu) {
-        event--;
-      }
     }
 
     if (event < infoFlux) {  // Impede entrada no teclado caso esteja na ultima tela, além de doneMarker
@@ -410,41 +412,20 @@ void printToLcd() {  // Imprime no LCD
 
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
-    case mainMenu:
-      if ((amostra == intervalo)) {  // com o dobro da frequencia do serial
-        lcd.clear();
-        lcd.print("1SetPoint");
-        lcd.setCursor(0, 1);
-        lcd.print("2FluxoMax");
-        lcd.setCursor(0, 2);
-        lcd.print("3FatorMFC");
-        lcd.setCursor(0, 3);
-        lcd.print("4FatorGas");
-        lcd.setCursor(18, 3);
-        lcd.print(inputBufferK);
+    case config:
+      lcd.setCursor(0, 0);
+      lcd.print(" 1 SetPoint");
+      lcd.setCursor(0, 1);
+      lcd.print(" 2 FluxoMax");
+      lcd.setCursor(0, 2);
+      lcd.print(" 3 FatorMFC");
+      lcd.setCursor(0, 3);
+      lcd.print(" 4 FatorGas");
 
-        lcd.setCursor(11, 0);
-        lcd.print("MFC1:");
-        lcd.print(SPFlux1);
-        lcd.setCursor(11, 1);
-        lcd.print("F:");
-        lcd.print(Flux1 * Fator_Gas_MFC1);
-
-        lcd.setCursor(11, 2);
-        lcd.print("MFC2:");
-        lcd.print(SPFlux2);
-        lcd.setCursor(11, 3);
-        lcd.print("F:");
-        lcd.print(Flux2 * Fator_Gas_MFC2);
-        /*
-        lcd.print("MFC3: SP");
-        lcd.print(SPFlux3);
-        lcd.print(" Flux:");
-        lcd.print(Flux3 * Fator_Gas_MFC3);
-        */
-      }
-
+      lcd.setCursor(17, 3);
+      lcd.print(inputBufferK);
       break;
+
     case selectMFC:
       lcd.setCursor(0, 2);
       lcd.print("-> ");
@@ -538,7 +519,7 @@ void printToLcd() {  // Imprime no LCD
 
     case infoMFC1:
 
-      lcd.println("M SetPoint:");
+      lcd.print("M SetPoint:");
       lcd.print(SPFlux1);
 
       lcd.setCursor(0, 1);
@@ -558,7 +539,7 @@ void printToLcd() {  // Imprime no LCD
       break;
 
     case infoMFC2:
-      lcd.println("M SetPoint:");
+      lcd.print("M SetPoint:");
       lcd.print(SPFlux2);
 
       lcd.setCursor(0, 1);
