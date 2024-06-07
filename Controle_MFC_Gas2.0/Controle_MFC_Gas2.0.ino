@@ -20,6 +20,27 @@
  ***********************************************************
  */
 
+
+//***************************************************************************************************************************
+/* Para adicionar mais uma (ou mais) MFC(s)
+//***************************************************************************************************************************
+
+Descomentar linhas:
+  57-59, Declaração da tela adicional "InfoFlux3" e "infoMFC3", ALTERAR os numeros das telas seguintes
+  135, Pinagem
+  152, Valores iniciais dos parametros de setpoint,fluxo maximo, fator gas e fator MFC
+  183, Declaração I/O no setup
+  210, Função de controle MFC3 no main
+  583, Tela infoFlux2
+  647, Tela "infoMFC3" em "printToLcd"
+  775, Atualização dos parametros na saída
+  807, Função de controle
+Alterar:
+  230, Adicionar "input==3" no if para validação de dados
+  303, "infoMfc2" para "infoMfc3", simbolizando que após ultima tela deve retornar para infoFlux
+  580,622,642, "lcd.print("X/3")" para "lcd.print("X/5")", estetica
+*/
+
 //***************************************************************************************************************************
 //Declarações Iniciais
 //***************************************************************************************************************************
@@ -34,10 +55,11 @@ const int
   pc = 1,
   arduino = 2,  // Fonte dos dados inseridos
 
-  config = 1,
-  selectMFC = 2, insertData = 3,             // Telas de interação do display
-  infoFlux = 4, infoMFC1 = 5, infoMFC2 = 6;  // Telas com informações dos MFCs
-// infoMFC3 = 8;
+  config = 1, selectMFC = 2, insertData = 3,  // Telas de interação do display
+  infoFlux = 4,
+  //  infoFlux2 = 5,
+  infoMFC1 = 5, infoMFC2 = 6;  // Telas com informações dos MFCs
+//  infoMFC3 = 8;
 
 const char
   point = '#',
@@ -81,11 +103,10 @@ int
 //Teclado e Display
 //***************************************************************************************************************************
 
-
 // Matriz de caracteres (mapeamento do teclado)
 const byte LINHAS = 4, COLUNAS = 4;
 const char TECLAS_MATRIZ[LINHAS][COLUNAS] = {
-  { '1', '2', '3', '.' },
+  { '1', '2', '3', 'A' },
   { '4', '5', '6', 'B' },
   { '7', '8', '9', 'C' },
   { '.', '0', '.', 'D' }
@@ -121,11 +142,10 @@ Keypad keypad = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS,
 #define Vopen3_Pin 8
 #define Flux3_Pin A2
 */
-
 //Configurações MFCs
 int SPFlux1_Out = 0,
     SPFlux2_Out = 0;
-//    SPFlux3_Out = 0,
+//    SPFlux3_Out = 0;
 
 float Flux_Max1 = 2000, SPFlux1 = 0, Flux1 = 0,
       Flux1_Val = 0, Fator_MFC1 = 1, Fator_Gas_MFC1 = 2.00,
@@ -134,7 +154,7 @@ float Flux_Max1 = 2000, SPFlux1 = 0, Flux1 = 0,
       Flux2_Val = 0, Fator_MFC2 = 1, Fator_Gas_MFC2 = 1.13;
 
 //      Flux_Max3 = 500, SPFlux3 = 0, Flux3 = 0,
-//      Flux3_Val = 0, Fator_MFC3 = 1, Fator_Gas_MFC3 = 1,
+//      Flux3_Val = 0, Fator_MFC3 = 1, Fator_Gas_MFC3 = 1;
 
 //***************************************************************************************************************************
 //Rotinas Principais
@@ -162,15 +182,14 @@ void setup() {
   digitalWrite(SPFlux2_Pin, 0);
   digitalWrite(Vopen2_Pin, 1);
   Flux_Max2 = Flux_Max2 * (Fator_MFC2 / Fator_Gas_MFC2);
-
-  /* MFC3
+  /*
+  // MFC3
   pinMode(SPFlux3_Pin, OUTPUT);
   pinMode(Vopen3_Pin, OUTPUT);
   digitalWrite(SPFlux3_Pin, 0);
   digitalWrite(Vopen3_Pin, 1);
   Flux_Max3 = Flux_Max3 * (Fator_MFC3 / Fator_Gas_MFC3);
   */
-
   // Mensagem inicial
   Serial.println("<Arduino is ready>");
   Serial.println(" ");
@@ -191,6 +210,7 @@ void loop() {
   configMFC();            // Atualiza valores nas MFCs
   Controle_MFC1();        // Controla MFC1
   Controle_MFC2();        // Controla MFC2
+  //Controle_MFC3();        // Controla MFC3
 }
 
 
@@ -208,10 +228,14 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = (input == 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4 no menu principal
       break;
     case selectMFC:
-      ret = (input == 1 || input == 2);  // Só permite selecionar entre 2 MFCs
+      ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
       break;
     case insertData:
       ret = (input <= 2000);  // numero máxio de entrada de valor
+      Serial.print("input");
+      Serial.println(input);
+      Serial.print("ret");
+      Serial.println(ret);
       break;
     default:
       ret = true;
@@ -269,7 +293,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
   char key = keypad.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (key != NO_KEY) {  // Caso tecla seja precionada
+  if (key != NO_KEY && key != 'A') {  // Caso tecla seja precionada
     readInProgress = true;
 
     if (key == doneMarker) {          // Tecla D submete valor inserido
@@ -292,13 +316,14 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
       }
       messageIndex = 0;
       readInProgress = false;
+      lcd.clear();
     }
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == config) {
-        event = infoFlux;
-      } else if (event >= infoFlux) {
+      if (event == config) {           // Se tela for de configuração,
+        event = infoFlux;              // volta para a de informação de fluxo
+      } else if (event == infoFlux) {  // Situação contrária a anterior
         event = config;
       } else {
         event--;
@@ -309,10 +334,10 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
       }
       messageIndex = 0;
       readInProgress = false;
+      lcd.clear();
     }
 
-    if (event < infoFlux) {  // Impede entrada no teclado caso esteja na ultima tela, além de doneMarker
-
+    if (event < infoFlux) {      // Impede entrada no teclado e limpeza do display a cada tecla pressionada, se estiver na tela de visualização
       if (key == clearMarker) {  // Tecla C, apaga último caractere
         if (messageIndex > 0) {  // caso array não nulo
           inputBufferK[--messageIndex] = '\0';
@@ -326,15 +351,15 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
             inputBufferK[0] = key;             // Adiciona caracter inserido
             messageIndex = 1;
           } else {
-            inputBufferK[messageIndex++] = key;  // adiciona caracter inserido
+            inputBufferK[messageIndex++] = key;  // Adiciona caracter inserido
           }
         } else {  // Caso contrário, mensagem cheia, não podemos adicionar mais caracteres
           Serial.println("Buffer cheio! Não é possível adicionar mais caracteres.");
         }
         readInProgress = false;
       }
+      lcd.clear();  // para qualquer tecla pressionada
     }
-    lcd.clear();
   }
 }
 
@@ -411,7 +436,6 @@ void configIno() {  // Configura parametro a ser atualizado
 void printToLcd() {  // Imprime no LCD
 
   lcd.setCursor(0, 0);
-  Serial.println(inputBufferK[0]);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case config:
       switch (inputBufferK[0]) {
@@ -439,25 +463,28 @@ void printToLcd() {  // Imprime no LCD
       lcd.print("3-FatorMFC");
       lcd.setCursor(2, 3);
       lcd.print("4-FatorGas");
-
-      lcd.setCursor(17, 3);
-      lcd.print(inputBufferK);
       break;
 
     case selectMFC:
-      lcd.setCursor(0, 2);
-      lcd.print("-> ");
       switch (messageFromK[0]) {
         case '1':
+          lcd.setCursor(0, 0);
+          lcd.print("--> ");
           lcd.print("SetPoint");
           break;
         case '2':
+          lcd.setCursor(0, 1);
+          lcd.print("--> ");
           lcd.print("FluxoMax");
           break;
         case '3':
+          lcd.setCursor(0, 2);
+          lcd.print("--> ");
           lcd.print("FatorMFC");
           break;
         case '4':
+          lcd.setCursor(0, 3);
+          lcd.print("--> ");
           lcd.print("FatorGas");
           break;
       }
@@ -495,15 +522,10 @@ void printToLcd() {  // Imprime no LCD
 
     case infoFlux:
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {
-        // if (SPMFC_update) { lcd.print("SetPoint"); }
-        // if (FluxMaxMFC_update) { lcd.print("FluxMax"); }
-        // if (FatorMFC_update) { lcd.print("FatorMFC"); }
-        // if (FatorGas_update) { lcd.print("FatorGas"); }
         lcd.setCursor(0, 1);
         lcd.print("Config: ");
         lcd.print("MFC");
         lcd.print(MFC);
-
         lcd.setCursor(0, 2);
         switch (messageFromUser[0]) {
           case '1':
@@ -521,48 +543,62 @@ void printToLcd() {  // Imprime no LCD
         }
         lcd.print("->");
         lcd.print(floatFromUser);
-
-        delay(5000);
+        delay(2000);
+        lcd.clear();
       }
 
-      if ((amostra == intervalo)) {  //
-
-        float trueFlux1 = Flux1 * Fator_Gas_MFC1;
+      if ((amostra == intervalo)) {
+        float trueFlux1 = Flux1 * Fator_Gas_MFC1;  // Variavel temporaria que calcula o fluxo real que esta saindo
         float trueFlux2 = Flux2 * Fator_Gas_MFC2;
-
-
-        lcd.clear();
-
         lcd.print("MFC|SetPoint|Fluxo");
 
         lcd.setCursor(0, 1);
         lcd.print(" 1 |");
         lcd.print(SPFlux1);
-        lcd.setCursor(12, 1);
-        lcd.print("|");
-        lcd.print(trueFlux1);
 
         lcd.setCursor(0, 2);
         lcd.print(" 2 |");
         lcd.print(SPFlux2);
+
+        lcd.setCursor(12, 1);
+        lcd.print("|");
+        lcd.print("       ");
+        lcd.setCursor(13, 1);
+        lcd.print(trueFlux1);
+
         lcd.setCursor(12, 2);
         lcd.print("|");
+        lcd.print("       ");
+        lcd.setCursor(13, 2);
         lcd.print(trueFlux2);
 
-
         lcd.setCursor(0, 3);
-        lcd.print("=================");
-        lcd.print("1/3");
-
-        /*
-        lcd.print("MFC3: SP");
-        lcd.print(SPFlux3);
-        lcd.print(" Flux:");
-        lcd.print(Flux3 * Fator_Gas_MFC3);
-        */
+        lcd.print("=================1/3");
       }
       break;
+      /*
+    case infoFlux2:
+      if ((amostra == intervalo)) {
 
+        float trueFlux3 = Flux3 * Fator_Gas_MFC3;
+
+        lcd.print("MFC|SetPoint|Fluxo");
+
+        lcd.setCursor(0, 1);
+        lcd.print(" 3 |");
+        lcd.print(SPFlux3);
+
+        lcd.setCursor(12, 1);
+        lcd.print("|");
+        lcd.print("       ");
+        lcd.setCursor(13, 1);
+        lcd.print(trueFlux3);
+
+        lcd.setCursor(0, 3);
+        lcd.print("=================2/5");
+      }
+      break;
+*/
     case infoMFC1:
 
       lcd.print("M SetPoint:");
@@ -603,23 +639,27 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(17, 3);
       lcd.print("3/3");
       break;
+      /*
+    case infoMFC3:
+      lcd.print("M SetPoint:");
+      lcd.print(SPFlux3);
 
-      /* case infoMFC3:
-        lcd.print("MFC1: SetPoint:");
-        lcd.print(SPFlux2);
-        lcd.setCursor(0, 1);
-        lcd.print("      FluxMax:");
-        lcd.print(Flux_Max2);
-        lcd.setCursor(0, 2);
-        lcd.print("      FatorMFC:");
-        lcd.print(Fator_MFC2);
-        lcd.setCursor(0, 3);
-        lcd.print("      FatorGas:");
-        lcd.print(Fator_Gas_MFC2);
-        lcd.setCursor(17, 3);
-        lcd.print("4/4");
-         break;
-      */
+      lcd.setCursor(0, 1);
+      lcd.print("F FluxoMax:");
+      lcd.print(Flux_Max3);
+
+      lcd.setCursor(0, 2);
+      lcd.print("C FatorMFC:");
+      lcd.print(Fator_MFC3);
+
+      lcd.setCursor(0, 3);
+      lcd.print("3 FatorGas:");
+      lcd.print(Fator_Gas_MFC3);
+
+      lcd.setCursor(17, 3);
+      lcd.print("5/5");
+      break;
+  */
   }
 }
 
@@ -730,7 +770,22 @@ void configMFC() {  // Atualiza valores nas MFCs
         FatorGas_update = false;
       }
       break;
+      /*
+    case 3:
+      if (SPMFC_update) { SPFlux3 = floatFromUser; }
+      if (FluxMaxMFC_update) { Flux_Max3 = floatFromUser; }
+      if (FatorMFC_update) { Fator_MFC3 = floatFromUser; }
+      if (FatorGas_update) { Fator_Gas_MFC3 = floatFromUser; }
 
+      if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {  //
+        SPFlux3_Out = (255 * SPFlux3 * (Fator_MFC3 / Fator_Gas_MFC3)) / Flux_Max3;    // Regra de 3 simples
+        SPMFC_update = false;
+        FluxMaxMFC_update = false;
+        FatorMFC_update = false;
+        FatorGas_update = false;
+      }
+      break;
+      */
     default:
       SPMFC_update = false;
       FluxMaxMFC_update = false;
@@ -759,3 +814,10 @@ void Controle_MFC2() {
   Flux2_Val = analogRead(Flux2_Pin);
   Flux2 = (Flux2_Val * Flux_Max2) / 1024;
 }
+/*
+  void Controle_MFC3() {
+    analogWrite(SPFlux3_Pin, SPFlux3_Out);
+    Flux3_Val = analogRead(Flux3_Pin);
+    Flux3 = (Flux3_Val * Flux_Max3) / 1024;
+  }
+  */
