@@ -231,7 +231,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
       break;
     case insertData:
-      ret = ((input > 0) && (input <= 2000));  // numero máximo de entrada de valor
+      ret = ((input >= 0) && (input <= 2000));  // numero máximo de entrada de valor
       break;
     default:
       ret = true;
