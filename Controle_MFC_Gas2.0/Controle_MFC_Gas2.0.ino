@@ -26,15 +26,15 @@
 //***************************************************************************************************************************
 
 Descomentar linhas:
-  57-59, Declaração da tela adicional "InfoFlux3" e "infoMFC3", ALTERAR os numeros das telas seguintes
-  135, Pinagem
-  152, Valores iniciais dos parametros de setpoint,fluxo maximo, fator gas e fator MFC
-  183, Declaração I/O no setup
-  210, Função de controle MFC3 no main
-  583, Tela infoFlux2
+  60-62, Declaração da tela adicional "InfoFlux3" e "infoMFC3", ALTERAR os numeros das telas seguintes
+  140, Pinagem
+  156, Valores iniciais dos parametros de setpoint,fluxo maximo, fator gas e fator MFC
+  186, Declaração I/O no setup
+  213, Função de controle MFC3 no main
+  585, Tela infoFlux2
   647, Tela "infoMFC3" em "printToLcd"
-  775, Atualização dos parametros na saída
-  807, Função de controle
+  780, Atualização dos parametros na saída
+  824, Função de controle
 Alterar:
   230, Adicionar "input==3" no if para validação de dados
   303, "infoMfc2" para "infoMfc3", simbolizando que após ultima tela deve retornar para infoFlux
@@ -49,12 +49,12 @@ Alterar:
 #include <LiquidCrystal_I2C.h>  //
 #include <Wire.h>               // Biblioteca do adaptador i2c do display
 
-int event = 4;  // Indice começa mostrando informações do fluxo
+int event = 4,     // Indice começa mostrando informações do fluxo
+  firstPrint = 0;  // Evita delay na transição para a tela "infoFlux"
 
 const int
   pc = 1,
-  arduino = 2,  // Fonte dos dados inseridos
-
+  arduino = 2,                                // Fonte dos dados inseridos
   config = 1, selectMFC = 2, insertData = 3,  // Telas de interação do display
   infoFlux = 4,
   //  infoFlux2 = 5,
@@ -231,11 +231,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
       break;
     case insertData:
-      ret = (input <= 2000);  // numero máxio de entrada de valor
-      Serial.print("input");
-      Serial.println(input);
-      Serial.print("ret");
-      Serial.println(ret);
+      ret = ((input > 0) && (input <= 2000));  // numero máximo de entrada de valor
       break;
     default:
       ret = true;
@@ -302,6 +298,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         newDataFromPC = true;
         if (event == infoMFC2) {  // Caso processo tenha sido finalizado
           event = infoFlux;       // volta a tela inicial
+          firstPrint = 1;         // Seta para primeira impressão rápida
         } else {
           event++;  // Passa para próxima tela
         }
@@ -321,11 +318,15 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == config) {           // Se tela for de configuração,
-        event = infoFlux;              // volta para a de informação de fluxo
+      if (event == config) {                                // Se tela for de configuração,
+        event = infoFlux;                                   // volta para a de informação de fluxo
       } else if (event == infoFlux) {  // Situação contrária a anterior
         event = config;
-      } else {
+      } else if(event == infoMFC1){
+        event--;
+        firstPrint = 1; // evita delay para printar
+      }
+       else {
         event--;
       }
 
@@ -547,7 +548,8 @@ void printToLcd() {  // Imprime no LCD
         lcd.clear();
       }
 
-      if ((amostra == intervalo)) {
+
+      if (firstPrint || (amostra == intervalo)) {
         float trueFlux1 = Flux1 * Fator_Gas_MFC1;  // Variavel temporaria que calcula o fluxo real que esta saindo
         float trueFlux2 = Flux2 * Fator_Gas_MFC2;
         lcd.print("MFC|SetPoint|Fluxo");
@@ -574,6 +576,8 @@ void printToLcd() {  // Imprime no LCD
 
         lcd.setCursor(0, 3);
         lcd.print("=================1/3");
+
+        firstPrint = 0;
       }
       break;
       /*
