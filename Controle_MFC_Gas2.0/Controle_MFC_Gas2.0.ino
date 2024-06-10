@@ -318,15 +318,14 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == config) {                                // Se tela for de configuração,
-        event = infoFlux;                                   // volta para a de informação de fluxo
+      if (event == config) {           // Se tela for de configuração,
+        event = infoFlux;              // volta para a de informação de fluxo
       } else if (event == infoFlux) {  // Situação contrária a anterior
         event = config;
-      } else if(event == infoMFC1){
+      } else if (event == infoMFC1) {
         event--;
-        firstPrint = 1; // evita delay para printar
-      }
-       else {
+        firstPrint = 1;  // evita delay para printar
+      } else {
         event--;
       }
 
