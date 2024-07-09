@@ -54,11 +54,11 @@ int event = 4,     // Indice começa mostrando informações do fluxo
 
 const int
   pc = 1,
-  arduino = 2,                                // Fonte dos dados inseridos
-  config = 1, selectMFC = 2, insertData = 3,  // Telas de interação do display
-  infoFlux = 4,
+  arduino = 2,                                                // Fonte dos dados inseridos
+  qtdConfig = 1, config = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
+  infoFlux = 5,
   //  infoFlux2 = 5,
-  infoMFC1 = 5, infoMFC2 = 6;  // Telas com informações dos MFCs
+  infoMFC1 = 6, infoMFC2 = 7;  // Telas com informações dos MFCs
 //  infoMFC3 = 8;
 
 const char
@@ -221,8 +221,11 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
   bool ret = false;
 
   switch (event) {
+    case qtdConfig:
+      ret = ((input = > 1) && (input <= 9));  // Só permite seleção de 1 a 4 no menu principal
+      break;
     case config:
-      ret = (input == 1 || input == 2 || input == 3 || input == 4);  // Só permite seleção de 1 a 4 no menu principal
+      ret = ((input >= 1) && (input <= 4));  // Só permite seleção de 1 a 4 no menu principal
       break;
     case selectMFC:
       ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
@@ -256,6 +259,10 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
   if (source == arduino) {  // Trata dados se foram inseridos pelo arduino
     switch (event) {
+      case qtdConfig:
+        quantidadeConfig = atoi(inputBufferK);
+        break;
+
       case config:
         strcpy(messageFromK, inputBufferK);
         break;
@@ -315,10 +322,10 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == config) {           // Se tela for de configuração,
+      if (event == qtdConfig) {       // Se tela for de configuração,
         event = infoFlux;              // volta para a de informação de fluxo
       } else if (event == infoFlux) {  // Situação contrária a anterior
-        event = config;
+        event = qtdConfig;
       } else if (event == infoMFC1) {
         event--;
         firstPrint = 1;  // evita delay para printar
@@ -431,7 +438,7 @@ void configIno() {  // Configura parametro a ser atualizado
 //=============
 
 //Impressão da tela de configuração
-void printConfigOptions() { 
+void printConfigOptions() {
 
   switch (inputBufferK[0]) {
     case '1':
@@ -484,10 +491,14 @@ void printToLcd() {  // Imprime no LCD
 
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
+    case qtdConfig:
+      lcd.print("Quantas config?");
+      lcd.setCursor(2, 0);
+      lcd.print(messageFromK[0]);
+      break;
     case config:
       printConfigOptions();
       break;
-
     case selectMFC:
       switch (messageFromK[0]) {
         case '1':
@@ -633,7 +644,7 @@ void printToLcd() {  // Imprime no LCD
     case infoMFC2:
       printMFCInfo(2, SPFlux2, Flux_Max2, Fator_MFC2, Fator_Gas_MFC2);
       break;
-    /*
+      /*
     case infoMFC3:
       printMFCInfo(3, SPFlux2, Flux_Max2, Fator_MFC2, Fator_Gas_MFC2);
       break;
