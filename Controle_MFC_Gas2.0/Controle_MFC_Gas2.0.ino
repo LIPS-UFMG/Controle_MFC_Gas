@@ -49,12 +49,12 @@ Alterar:
 #include <LiquidCrystal_I2C.h>  //
 #include <Wire.h>               // Biblioteca do adaptador i2c do display
 
-int event = 4,     // Indice começa mostrando informações do fluxo
+int event = 5,     // Indice começa mostrando informações do fluxo
   firstPrint = 0;  // Evita delay na transição para a tela "infoFlux"
 
 const int
   pc = 1,
-  arduino = 2,                                               // Fonte dos dados inseridos
+  arduino = 2,                                                // Fonte dos dados inseridos
   qtdConfig = 1, config = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
   infoFlux = 5,
   //  infoFlux2 = 5,
@@ -79,18 +79,16 @@ const byte
   buffSizeK = 8;  // Tamanho do buffer do pc e do teclado, respectivamente
 
 char
-  inputBufferK[buffSizeK],             // Buffer para a entrada do teclado
-  inputBufferS[buffSize],              // Buffer para a entrada do pc
-  messageFromK[10][buffSize] = { 0 },  // Parametro a ser alterado recebido pelo teclado
-  messageFromUser[buffSize] = { 0 };   // Parametro que será alterado
+  inputBufferK[buffSizeK],            // Buffer para a entrada do teclado
+  inputBufferS[buffSize],             // Buffer para a entrada do pc
+  messageFromK[buffSize] = { 0 },     // Parametro a ser alterado recebido pelo teclado
+  messageFromUser[buffSize] = { 0 };  // Parametro que será alterado
 
 int
-  intFromK[10] = { 0 },  // MFC selecionada pelo teclado
-  intFromUser = 0,       // MFC selecionada pelo serial   ?
-  MFC = 0,               // MFC que será alterada
   quantidadeConfig = 0,
-  configIndex = 0;
-
+  intFromK = 0,             // MFC selecionada pelo teclado
+  intFromUser = 0,          // MFC selecionada pelo serial   ?
+  MFC = 0;                  // MFC que será alterada
 float floatFromUser = 0.0;  // Valores de configuração do MFC
 
 bool
@@ -307,11 +305,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
           event = infoFlux;       // volta a tela inicial
           firstPrint = 1;         // Seta para primeira impressão rápida
         } else {
-          if (event == insertData && configIndex == qtdConfig) {
-            event = config;
-          } else {
-            event++;  // Passa para próxima tela
-          }
+          event++;  // Passa para próxima tela
         }
       } else {  // Se dado invalido
         lcd.clear();
@@ -329,7 +323,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == qtdConfig) {        // Se tela for de configuração,
+      if (event == qtdConfig) {       // Se tela for de configuração,
         event = infoFlux;              // volta para a de informação de fluxo
       } else if (event == infoFlux) {  // Situação contrária a anterior
         event = qtdConfig;
@@ -500,8 +494,8 @@ void printToLcd() {  // Imprime no LCD
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
     case qtdConfig:
       lcd.print("Quantas config?");
-      lcd.setCursor(2, 0);
-      lcd.print(messageFromK[0]);
+      lcd.setCursor(0,2);
+      lcd.print(inputBufferK);
       break;
     case config:
       printConfigOptions();
