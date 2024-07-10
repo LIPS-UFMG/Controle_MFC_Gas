@@ -54,7 +54,7 @@ int event = 5,     // Indice começa mostrando informações do fluxo
 
 const int
   pc = 1,
-  arduino = 2,                                                // Fonte dos dados inseridos
+  arduino = 2,                                               // Fonte dos dados inseridos
   qtdConfig = 1, config = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
   infoFlux = 5,
   //  infoFlux2 = 5,
@@ -86,6 +86,7 @@ char
 
 int
   quantidadeConfig = 0,
+  configIndex = 0,
   intFromK = 0,             // MFC selecionada pelo teclado
   intFromUser = 0,          // MFC selecionada pelo serial   ?
   MFC = 0;                  // MFC que será alterada
@@ -273,16 +274,19 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
         break;
 
       case insertData:
-        strcpy(messageFromUser, messageFromK);
-        intFromUser = intFromK;
-        floatFromUser = atof(inputBufferK);
-        Serial.println("Dados: ");
-        Serial.print("A: ");
-        Serial.println(messageFromUser);
-        Serial.print("B: ");
-        Serial.println(intFromUser);
-        Serial.print("C: ");
-        Serial.println(floatFromUser);
+
+        if (configIndex == quantidadeConfig) {
+          strcpy(messageFromUser, messageFromK);
+          intFromUser = intFromK;
+          floatFromUser = atof(inputBufferK);
+          Serial.println("Dados: ");
+          Serial.print("A: ");
+          Serial.println(messageFromUser);
+          Serial.print("B: ");
+          Serial.println(intFromUser);
+          Serial.print("C: ");
+          Serial.println(floatFromUser);
+        }
         break;
     }
   }
@@ -304,6 +308,9 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         if (event == infoMFC2) {  // Caso processo tenha sido finalizado
           event = infoFlux;       // volta a tela inicial
           firstPrint = 1;         // Seta para primeira impressão rápida
+        } else if ((event == insertData) && (configIndex < quantidadeConfig)) {
+          event = config;
+          configIndex++;
         } else {
           event++;  // Passa para próxima tela
         }
@@ -323,10 +330,12 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == qtdConfig) {       // Se tela for de configuração,
+      if (event == qtdConfig) {        // Se tela for de configuração,
         event = infoFlux;              // volta para a de informação de fluxo
       } else if (event == infoFlux) {  // Situação contrária a anterior
         event = qtdConfig;
+        configIndex = 1;
+        quantidadeConfig = 0;
       } else if (event == infoMFC1) {
         event--;
         firstPrint = 1;  // evita delay para printar
@@ -440,7 +449,6 @@ void configIno() {  // Configura parametro a ser atualizado
 
 //Impressão da tela de configuração
 void printConfigOptions() {
-
   switch (inputBufferK[0]) {
     case '1':
       lcd.print("->");
@@ -490,36 +498,39 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
 
 void printToLcd() {  // Imprime no LCD
 
+  if ((event < 5) && (quantidadeConfig >= 1)) {
+    lcd.setCursor(13, 0);
+    lcd.print("CFG ");
+    lcd.print(configIndex);
+    lcd.print("/");
+    lcd.print(quantidadeConfig);
+  }
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
+
     case qtdConfig:
-      lcd.print("Quantas config?");
-      lcd.setCursor(0,2);
+      lcd.setCursor(0, 1);
+      lcd.print("Qtd de Config:");
+      lcd.setCursor(0, 2);
       lcd.print(inputBufferK);
       break;
     case config:
       printConfigOptions();
       break;
     case selectMFC:
+      lcd.setCursor(0, 2);
+      lcd.print("--> ");
       switch (messageFromK[0]) {
         case '1':
-          lcd.setCursor(0, 0);
-          lcd.print("--> ");
           lcd.print("SetPoint");
           break;
         case '2':
-          lcd.setCursor(0, 1);
-          lcd.print("--> ");
           lcd.print("FluxoMax");
           break;
         case '3':
-          lcd.setCursor(0, 2);
-          lcd.print("--> ");
           lcd.print("FatorMFC");
           break;
         case '4':
-          lcd.setCursor(0, 3);
-          lcd.print("--> ");
           lcd.print("FatorGas");
           break;
       }
@@ -559,7 +570,8 @@ void printToLcd() {  // Imprime no LCD
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {
         lcd.setCursor(0, 1);
         lcd.print("Config: ");
-        lcd.print("MFC");
+        lcd.print(configIndex);
+        lcd.print(" MFC");
         lcd.print(MFC);
         lcd.setCursor(0, 2);
         switch (messageFromUser[0]) {
@@ -614,7 +626,7 @@ void printToLcd() {  // Imprime no LCD
         firstPrint = 0;
       }
       break;
-      /*
+    /*
     case infoFlux2:
       if ((amostra == intervalo)) {
 
@@ -636,7 +648,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.print("=================2/5");
       }
       break;
-*/
+    */
     case infoMFC1:
 
       printMFCInfo(1, SPFlux1, Flux_Max1, Fator_MFC1, Fator_Gas_MFC1);
