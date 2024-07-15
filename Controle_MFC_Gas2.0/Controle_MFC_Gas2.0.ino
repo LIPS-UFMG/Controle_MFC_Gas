@@ -49,17 +49,17 @@ Alterar:
 #include <LiquidCrystal_I2C.h>  //
 #include <Wire.h>               // Biblioteca do adaptador i2c do display
 
-int event = 5,     // Indice começa mostrando informações do fluxo
+int event = 6,     // Indice começa mostrando informações do fluxo
   firstPrint = 0;  // Evita delay na transição para a tela "infoFlux"
 
 const int
   pc = 1,
   arduino = 2,                                               // Fonte dos dados inseridos
   qtdConfig = 1, config = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
-  infoFlux = 5,
-  //  infoFlux2 = 5,
-  infoMFC1 = 6, infoMFC2 = 7;  // Telas com informações dos MFCs
-//  infoMFC3 = 8;
+  insertTime = 5, infoFlux = 6, infoConfig = 7,
+  //  infoFlux2 = 8,
+  infoMFC1 = 8, infoMFC2 = 9;  // Telas com informações dos MFCs
+//  infoMFC3 = 10;
 
 const char
   point = '#',
@@ -85,9 +85,11 @@ char
   messageFromUser[buffSize] = { 0 };   // Parametro que será alterado
 
 int
-  intFromK[10] = { 0 },  // MFC selecionada pelo teclado
+  timeFromK[10] = { 0 },
+  mfcFromK[10] = { 0 },  // MFC selecionada pelo teclado
   quantidadeConfig = 0,
   configIndex = 0,
+  timeFromUser = 0,
   intFromUser = 0,             // MFC selecionada pelo serial   ?
   MFC = 0;                     // MFC que será alterada
 float floatFromK[10] = { 0 },  //
@@ -225,7 +227,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
 
   switch (event) {
     case qtdConfig:
-      ret = ((input >= 1) && (input <= 9));  // Só permite seleção de 1 a 4 no menu principal
+      ret = ((input >= 1) && (input <= 2));  // Só permite seleção de 1 a 4 no menu principal
       break;
     case config:
       ret = ((input >= 1) && (input <= 4));  // Só permite seleção de 1 a 4 no menu principal
@@ -235,6 +237,9 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       break;
     case insertData:
       ret = ((input >= 0) && (input <= 2000));  // numero máximo de entrada de valor
+      break;
+    case insertTime:
+      ret = ((input >= 0) && (input <= 999));  // numero máximo de entrada de valor
       break;
     default:
       ret = true;
@@ -271,15 +276,20 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
         break;
 
       case selectMFC:
-        intFromK[configIndex] = atoi(inputBufferK);
+        mfcFromK[configIndex] = atoi(inputBufferK);
         break;
 
       case insertData:
         floatFromK[configIndex] = atof(inputBufferK);
 
+        break;
+      case insertTime:
+        timeFromK[configIndex] = atof(inputBufferK);
+
         strcpy(messageFromUser, messageFromK[configIndex]);
-        intFromUser = intFromK[configIndex];
+        intFromUser = mfcFromK[configIndex];
         floatFromUser = floatFromK[configIndex];
+        timeFromUser = timeFromK[configIndex];
         Serial.println("Dados: ");
         Serial.print("A: ");
         Serial.println(messageFromUser);
@@ -309,7 +319,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         if (event == infoMFC2) {  // Caso processo tenha sido finalizado
           event = infoFlux;       // volta a tela inicial
           firstPrint = 1;         // Seta para primeira impressão rápida
-        } else if ((event == insertData) && (configIndex < quantidadeConfig)) {
+        } else if ((event == insertTime) && (configIndex < quantidadeConfig)) {
           event = config;
           configIndex++;
         } else {
@@ -360,10 +370,10 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         readInProgress = false;
       }
 
-      if (readInProgress) {                    // Se ainda estiver lendo,
-        if (messageIndex < (buffSizeK - 1)) {  // Impede que a mensagem ultrapasse o limite do buffer
-          if (event != insertData) {           // Nestas telas limite para 1 caractere
-            inputBufferK[0] = key;             // Adiciona caracter inserido
+      if (readInProgress) {                                  // Se ainda estiver lendo,
+        if (messageIndex < (buffSizeK - 1)) {                // Impede que a mensagem ultrapasse o limite do buffer
+          if (event != insertData && event != insertTime) {  // Nestas telas limite para 1 caractere
+            inputBufferK[0] = key;                           // Adiciona caracter inserido
             messageIndex = 1;
           } else {
             inputBufferK[messageIndex++] = key;  // Adiciona caracter inserido
@@ -493,8 +503,8 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
   lcd.print(" FatorGas:");
   lcd.print(Fator_Gas_MFC);
   lcd.setCursor(17, 3);
-  lcd.print(index + 1);
-  lcd.print("/3");
+  lcd.print(index + 2);
+  lcd.print("/4");
 }
 
 void printToLcd() {  // Imprime no LCD
@@ -519,7 +529,7 @@ void printToLcd() {  // Imprime no LCD
       printConfigOptions();
       break;
     case selectMFC:
-      lcd.setCursor(0, 2);
+      lcd.setCursor(0, 1);
       lcd.print("--> ");
       switch (messageFromK[configIndex][0]) {
         case '1':
@@ -541,7 +551,7 @@ void printToLcd() {  // Imprime no LCD
       lcd.print("");
       break;
     case insertData:
-      lcd.setCursor(0, 2);
+      lcd.setCursor(0, 1);
       lcd.print("-> ");
       switch (messageFromK[configIndex][0]) {
         case '1':
@@ -559,42 +569,73 @@ void printToLcd() {  // Imprime no LCD
       }
       lcd.print(",");
       lcd.print("MFC");
-      lcd.print(intFromK[configIndex]);
+      lcd.print(mfcFromK[configIndex]);
       lcd.print(",");
-      lcd.setCursor(0, 3);
+      lcd.setCursor(0, 2);
       lcd.print("-> ");
       lcd.print("Valor:");
       lcd.print(inputBufferK);
       break;
 
+    case insertTime:
+      lcd.setCursor(0, 1);
+      lcd.print("-> ");
+      switch (messageFromK[configIndex][0]) {
+        case '1':
+          lcd.print("SetPoint");
+          break;
+        case '2':
+          lcd.print("FluxoMax");
+          break;
+        case '3':
+          lcd.print("FatorMFC");
+          break;
+        case '4':
+          lcd.print("FatorGas");
+          break;
+      }
+      lcd.print(",");
+      lcd.print("MFC");
+      lcd.print(mfcFromK[configIndex]);
+      lcd.print(",");
+      lcd.setCursor(0, 2);
+      lcd.print("-> ");
+      lcd.print("Valor:");
+      lcd.print(floatFromK[configIndex]);
+      lcd.setCursor(0, 3);
+      lcd.print("-> ");
+      lcd.print("Tempo:");
+      lcd.print(inputBufferK);
+      break;
+
     case infoFlux:
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {
-        lcd.setCursor(0, 1);
-        lcd.print("Config: ");
-        lcd.print(configIndex);
-        lcd.print(" MFC");
-        lcd.print(MFC);
-        lcd.setCursor(0, 2);
-        switch (messageFromUser[0]) {
-          case '1':
-            lcd.print("SetPoint");
-            break;
-          case '2':
-            lcd.print("FluxoMax");
-            break;
-          case '3':
-            lcd.print("FatorMFC");
-            break;
-          case '4':
-            lcd.print("FatorGas");
-            break;
+        lcd.print("Configurado!");
+        for (int i = 1; i <= quantidadeConfig; i++) {
+          lcd.setCursor(1, i);
+          lcd.print(mfcFromK[i]);
+          lcd.print(",");
+          switch (messageFromK[i][0]) {
+            case '1':
+              lcd.print("SP,");
+              break;
+            case '2':
+              lcd.print("FM,");
+              break;
+            case '3':
+              lcd.print("MFC,");
+              break;
+            case '4':
+              lcd.print("FG,");
+              break;
+          }
+          lcd.print(floatFromK[i], 1);
+          lcd.print(",");
+          lcd.print(timeFromK[i]);
         }
-        lcd.print("->");
-        lcd.print(floatFromUser);
-        delay(2000);
+        delay(5000);
         lcd.clear();
       }
-
 
       if (firstPrint || (amostra == intervalo)) {
         float trueFlux1 = Flux1 * Fator_Gas_MFC1;  // Variavel temporaria que calcula o fluxo real que esta saindo
@@ -622,10 +663,40 @@ void printToLcd() {  // Imprime no LCD
         lcd.print(trueFlux2);
 
         lcd.setCursor(0, 3);
-        lcd.print("=================1/3");
+        lcd.print("=================1/4");
 
         firstPrint = 0;
       }
+      break;
+
+    case infoConfig:
+      lcd.print("MFC| - | Value |Time");
+      for (int i = 1; i <= quantidadeConfig; i++) {
+        lcd.setCursor(1, i);
+        lcd.print(mfcFromK[i]);
+        lcd.print(" |");
+        switch (messageFromK[i][0]) {
+          case '1':
+            lcd.print("SP |");
+            break;
+          case '2':
+            lcd.print("FM |");
+            break;
+          case '3':
+            lcd.print("MFC|");
+            break;
+          case '4':
+            lcd.print("FG |");
+            break;
+        }
+        lcd.print(floatFromK[i], 1);
+        lcd.setCursor(15, i);
+        lcd.print("|");
+        lcd.print(timeFromK[i]);
+      }
+      lcd.setCursor(0, 3);
+      lcd.print("=================2/4");
+
       break;
     /*
     case infoFlux2:
