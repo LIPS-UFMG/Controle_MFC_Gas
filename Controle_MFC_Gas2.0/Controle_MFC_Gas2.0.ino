@@ -68,7 +68,8 @@ const char
 
 bool
   readInProgress = false,  // Indica estado da leitura
-  newDataFromPC = false;   // Simboliza se houve inserção de dados pelo usuario
+  newDataFromPC = false,   // Simboliza se houve inserção de dados pelo usuario
+  timerInit = false;
 
 byte
   bytesRecvd = 0,    // Tamanho da mensagem recebida
@@ -85,15 +86,21 @@ char
   messageFromUser[buffSize] = { 0 };   // Parametro que será alterado
 
 int
-  timeFromK[10] = { 0 },
   mfcFromK[10] = { 0 },  // MFC selecionada pelo teclado
-  quantidadeConfig = 0,
-  configIndex = 0,
-  timeFromUser = 0,
-  intFromUser = 0,             // MFC selecionada pelo serial   ?
-  MFC = 0;                     // MFC que será alterada
-float floatFromK[10] = { 0 },  //
-  floatFromUser = 0.0;         // Valores de configuração do MFC
+  quantidadeConfig = 0,  //
+  configIndex = 0,       //
+  timeFromUser = 0,      //
+  intFromUser = 0,       // MFC selecionada pelo serial   ?
+  MFC = 0;               // MFC que será alterada
+
+unsigned long
+  baseTime = 0,    //
+  timePassed = 0;  //
+float
+  floatFromK[10] = { 0 },  //
+  timeFromK[10] = { 0 },   //
+  floatFromUser = 0.0,     // Valores de configuração do MFC
+  totalTime = 0.0;         //
 
 bool
   printHelp = false,                                 // Estado para imprimir ajuda
@@ -204,6 +211,7 @@ void controleMFC(int SPFlux_Pin, int Vopen_Pin, float& SPFlux, float& Flux, int&
 }
 
 void loop() {
+  timer();
   getDataFromKeyboard();  // Recebe dados do teclado
   getDataFromPC();        // Recebe dados do pc
   configIno();            // Configura parametro a ser atualizado
@@ -286,20 +294,38 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
       case insertTime:
         timeFromK[configIndex] = atof(inputBufferK);
 
+
         strcpy(messageFromUser, messageFromK[configIndex]);
         intFromUser = mfcFromK[configIndex];
         floatFromUser = floatFromK[configIndex];
         timeFromUser = timeFromK[configIndex];
-        Serial.println("Dados: ");
-        Serial.print("A: ");
-        Serial.println(messageFromUser);
-        Serial.print("B: ");
-        Serial.println(intFromUser);
-        Serial.print("C: ");
-        Serial.println(floatFromUser);
+
+        // Serial.println("Dados: ");
+        // Serial.print("A: ");
+        // Serial.println(messageFromUser);
+        // Serial.print("B: ");
+        // Serial.println(intFromUser);
+        // Serial.print("C: ");
+        // Serial.println(floatFromUser);
 
         break;
     }
+  }
+}
+
+//=============
+
+void timer() {  //
+
+  if (timerInit) {
+    baseTime = millis();
+    totalTime = timeFromK[1];
+    timerInit = false;
+  }
+  if (timeFromK[1] > 0) {
+    timePassed = millis() - baseTime;
+    float minutesPassed = timePassed / 60000.0;
+    timeFromK[1] = totalTime - minutesPassed;
   }
 }
 
@@ -347,11 +373,11 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         event = qtdConfig;
         configIndex = 1;
         quantidadeConfig = 0;
-      } else if (event == infoMFC1) {
-        event--;
-        firstPrint = 1;  // evita delay para printar
       } else {
         event--;
+      }
+      if (event == infoConfig) {
+        firstPrint = 1;  // evita delay para printar
       }
 
       for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
@@ -509,7 +535,7 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
 
 void printToLcd() {  // Imprime no LCD
 
-  if ((event < 5) && (quantidadeConfig >= 1)) {
+  if ((event < infoFlux) && (quantidadeConfig >= 1)) {
     lcd.setCursor(13, 0);
     lcd.print("CFG ");
     lcd.print(configIndex);
@@ -635,6 +661,7 @@ void printToLcd() {  // Imprime no LCD
         }
         delay(5000);
         lcd.clear();
+        timerInit = true;
       }
 
       if (firstPrint || (amostra == intervalo)) {
@@ -670,7 +697,7 @@ void printToLcd() {  // Imprime no LCD
       break;
 
     case infoConfig:
-      lcd.print("MFC| - | Value |Time");
+      lcd.print("MFC| - | Val  |Time");
       for (int i = 1; i <= quantidadeConfig; i++) {
         lcd.setCursor(1, i);
         lcd.print(mfcFromK[i]);
@@ -690,7 +717,7 @@ void printToLcd() {  // Imprime no LCD
             break;
         }
         lcd.print(floatFromK[i], 1);
-        lcd.setCursor(15, i);
+        lcd.setCursor(14, i);
         lcd.print("|");
         lcd.print(timeFromK[i]);
       }
