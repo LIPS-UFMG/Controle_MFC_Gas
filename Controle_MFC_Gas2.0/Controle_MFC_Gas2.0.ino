@@ -79,18 +79,19 @@ const byte
   buffSizeK = 8;  // Tamanho do buffer do pc e do teclado, respectivamente
 
 char
-  inputBufferK[buffSizeK],            // Buffer para a entrada do teclado
-  inputBufferS[buffSize],             // Buffer para a entrada do pc
-  messageFromK[buffSize] = { 0 },     // Parametro a ser alterado recebido pelo teclado
-  messageFromUser[buffSize] = { 0 };  // Parametro que será alterado
+  inputBufferK[buffSizeK],             // Buffer para a entrada do teclado
+  inputBufferS[buffSize],              // Buffer para a entrada do pc
+  messageFromK[10][buffSize] = { 0 },  // Parametro a ser alterado recebido pelo teclado
+  messageFromUser[buffSize] = { 0 };   // Parametro que será alterado
 
 int
+  intFromK[10] = { 0 },  // MFC selecionada pelo teclado
   quantidadeConfig = 0,
   configIndex = 0,
-  intFromK = 0,             // MFC selecionada pelo teclado
-  intFromUser = 0,          // MFC selecionada pelo serial   ?
-  MFC = 0;                  // MFC que será alterada
-float floatFromUser = 0.0;  // Valores de configuração do MFC
+  intFromUser = 0,             // MFC selecionada pelo serial   ?
+  MFC = 0;                     // MFC que será alterada
+float floatFromK[10] = { 0 },  //
+  floatFromUser = 0.0;         // Valores de configuração do MFC
 
 bool
   printHelp = false,                                 // Estado para imprimir ajuda
@@ -266,27 +267,27 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
         break;
 
       case config:
-        strcpy(messageFromK, inputBufferK);
+        strcpy(messageFromK[configIndex], inputBufferK);
         break;
 
       case selectMFC:
-        intFromK = atoi(inputBufferK);
+        intFromK[configIndex] = atoi(inputBufferK);
         break;
 
       case insertData:
+        floatFromK[configIndex] = atof(inputBufferK);
 
-        if (configIndex == quantidadeConfig) {
-          strcpy(messageFromUser, messageFromK);
-          intFromUser = intFromK;
-          floatFromUser = atof(inputBufferK);
-          Serial.println("Dados: ");
-          Serial.print("A: ");
-          Serial.println(messageFromUser);
-          Serial.print("B: ");
-          Serial.println(intFromUser);
-          Serial.print("C: ");
-          Serial.println(floatFromUser);
-        }
+        strcpy(messageFromUser, messageFromK[configIndex]);
+        intFromUser = intFromK[configIndex];
+        floatFromUser = floatFromK[configIndex];
+        Serial.println("Dados: ");
+        Serial.print("A: ");
+        Serial.println(messageFromUser);
+        Serial.print("B: ");
+        Serial.println(intFromUser);
+        Serial.print("C: ");
+        Serial.println(floatFromUser);
+
         break;
     }
   }
@@ -520,7 +521,7 @@ void printToLcd() {  // Imprime no LCD
     case selectMFC:
       lcd.setCursor(0, 2);
       lcd.print("--> ");
-      switch (messageFromK[0]) {
+      switch (messageFromK[configIndex][0]) {
         case '1':
           lcd.print("SetPoint");
           break;
@@ -542,7 +543,7 @@ void printToLcd() {  // Imprime no LCD
     case insertData:
       lcd.setCursor(0, 2);
       lcd.print("-> ");
-      switch (messageFromK[0]) {
+      switch (messageFromK[configIndex][0]) {
         case '1':
           lcd.print("SetPoint");
           break;
@@ -558,7 +559,7 @@ void printToLcd() {  // Imprime no LCD
       }
       lcd.print(",");
       lcd.print("MFC");
-      lcd.print(intFromK);
+      lcd.print(intFromK[configIndex]);
       lcd.print(",");
       lcd.setCursor(0, 3);
       lcd.print("-> ");
