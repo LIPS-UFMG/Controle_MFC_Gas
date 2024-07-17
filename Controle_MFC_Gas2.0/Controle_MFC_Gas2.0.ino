@@ -55,7 +55,7 @@ int event = 6,     // Indice começa mostrando informações do fluxo
 const int
   pc = 1,
   arduino = 2,                                               // Fonte dos dados inseridos
-  qtdConfig = 1, config = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
+  config = 1, qtdConfig = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
   insertTime = 5, infoFlux = 6, infoConfig = 7,
   //  infoFlux2 = 8,
   infoMFC1 = 8, infoMFC2 = 9;  // Telas com informações dos MFCs
@@ -80,10 +80,10 @@ const byte
   buffSizeK = 8;  // Tamanho do buffer do pc e do teclado, respectivamente
 
 char
-  inputBufferK[buffSizeK],             // Buffer para a entrada do teclado
-  inputBufferS[buffSize],              // Buffer para a entrada do pc
-  messageFromK[10][buffSize] = { 0 },  // Parametro a ser alterado recebido pelo teclado
-  messageFromUser[buffSize] = { 0 };   // Parametro que será alterado
+  inputBufferK[buffSizeK],            // Buffer para a entrada do teclado
+  inputBufferS[buffSize],             // Buffer para a entrada do pc
+  messageFromK[buffSize],             // Parametro a ser alterado recebido pelo teclado
+  messageFromUser[buffSize] = { 0 };  // Parametro que será alterado
 
 int
   mfcFromK[10] = { 0 },  // MFC selecionada pelo teclado
@@ -234,11 +234,11 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
   bool ret = false;
 
   switch (event) {
-    case qtdConfig:
-      ret = ((input >= 1) && (input <= 3));  // maximo de configs
-      break;
     case config:
       ret = ((input >= 1) && (input <= 4));  // Só permite seleção de 1 a 4 no menu principal
+      break;
+    case qtdConfig:
+      ret = ((input >= 1) && (input <= 3));  // maximo de configs
       break;
     case selectMFC:
       ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
@@ -275,12 +275,13 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
   if (source == arduino) {  // Trata dados se foram inseridos pelo arduino
     switch (event) {
-      case qtdConfig:
-        quantidadeConfig = atoi(inputBufferK);
-        break;
 
       case config:
-        strcpy(messageFromK[configIndex], inputBufferK);
+        strcpy(messageFromK, inputBufferK);
+        break;
+
+      case qtdConfig:
+        quantidadeConfig = atoi(inputBufferK);
         break;
 
       case selectMFC:
@@ -289,8 +290,8 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
       case insertData:
         floatFromK[configIndex] = atof(inputBufferK);
-        if (messageFromK[configIndex][0] != '1') {  // se a configuração não for setpoint
-          strcpy(messageFromUser, messageFromK[configIndex]);
+        if (messageFromK[0] != '1') {  // se a configuração não for setpoint
+          strcpy(messageFromUser, messageFromK);
           intFromUser = mfcFromK[configIndex];
           floatFromUser = floatFromK[configIndex];
         }
@@ -311,7 +312,7 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
   }
 
   if (source == timer) {
-    strcpy(messageFromUser, messageFromK[configIndex]);
+    strcpy(messageFromUser, messageFromK);
     intFromUser = mfcFromK[configIndex];
     floatFromUser = floatFromK[configIndex];
     timeFromUser = timeFromK[configIndex];
@@ -365,7 +366,7 @@ void timer() {  //
       totalTime = 0;
       lcd.clear();
       lcd.setCursor(0, 2);
-      lcd.print("Acabou o processo!");
+      lcd.print("Processo finalizado!");
       delay(5000);
       lcd.clear();
     }
@@ -386,18 +387,20 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         parseData(arduino);
         newDataFromPC = true;
 
+        if (event == config) { quantidadeConfig = 1; }
+
         if (event == infoMFC2) {  // Caso processo tenha sido finalizado
           event = infoFlux;       // volta a tela inicial
           firstPrint = 1;         // Seta para primeira impressão rápida
-        } else if (event == insertData) {
-          if (messageFromK[configIndex][0] != '1') {
+        } else if (event == config || event == insertData) {
+          if (messageFromK[0] != '1') {
             event += 2;
           } else {
             event++;
           }
         } else if (event == insertTime) {
           if (configIndex < quantidadeConfig) {
-            event = config;
+            event = selectMFC;
             configIndex++;
           } else {
             configIndex = 1;
@@ -423,17 +426,24 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == qtdConfig) {        // Se tela for de configuração,
-        event = infoFlux;              // volta para a de informação de fluxo
-      } else if (event == infoFlux) {  // Situação contrária a anterior
-        event = qtdConfig;
-        configIndex = 1;
-        quantidadeConfig = 0;
-      } else {
-        event--;
-      }
       if (event == infoConfig) {
         firstPrint = 1;  // evita delay para printar
+      }
+
+      if (event == config) {  // Se tela for de configuração,
+        quantidadeConfig = 0;
+        event = infoFlux;                      // volta para a de informação de fluxo
+      } else if (event == infoFlux) {          // Situação contrária a anterior
+        for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
+          timeFromK[i] = '\0';
+        }
+        event = config;
+        configIndex = 1;
+        quantidadeConfig = 0;
+      } else if (event == selectMFC) {
+        event -= 2;
+      } else {
+        event--;
       }
 
       for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
@@ -599,7 +609,7 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
 
 void printToLcd() {  // Imprime no LCD
 
-  if ((event < infoFlux) && (quantidadeConfig >= 1)) {
+  if ((event > qtdConfig) && (event < infoFlux)) {
     lcd.setCursor(17, 0);
     lcd.print("CFG");
     lcd.setCursor(19, 1);
@@ -612,6 +622,9 @@ void printToLcd() {  // Imprime no LCD
   lcd.setCursor(0, 0);
   switch (event) {  // Imprime mensagem de instrução correspondente a tela
 
+    case config:
+      printConfigOptions();
+      break;
     case qtdConfig:
       lcd.setCursor(0, 0);
       lcd.print("*------------------*");
@@ -627,13 +640,10 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(0, 3);
       lcd.print("*------------------*");
       break;
-    case config:
-      printConfigOptions();
-      break;
     case selectMFC:
       lcd.setCursor(0, 1);
       lcd.print("-> ");
-      switch (messageFromK[configIndex][0]) {
+      switch (messageFromK[0]) {
         case '1':
           lcd.print("SetPoint");
           break;
@@ -655,7 +665,7 @@ void printToLcd() {  // Imprime no LCD
     case insertData:
       lcd.setCursor(0, 1);
       lcd.print("-> ");
-      switch (messageFromK[configIndex][0]) {
+      switch (messageFromK[0]) {
         case '1':
           lcd.print("SetPoint");
           break;
@@ -682,7 +692,7 @@ void printToLcd() {  // Imprime no LCD
     case insertTime:
       lcd.setCursor(0, 1);
       lcd.print("-> ");
-      switch (messageFromK[configIndex][0]) {
+      switch (messageFromK[0]) {
         case '1':
           lcd.print("SetPoint");
           break;
@@ -717,7 +727,7 @@ void printToLcd() {  // Imprime no LCD
           lcd.setCursor(1, i);
           lcd.print(mfcFromK[i]);
           lcd.print(",");
-          switch (messageFromK[i][0]) {
+          switch (messageFromK[0]) {
             case '1':
               lcd.print("SP,");
               break;
@@ -733,9 +743,11 @@ void printToLcd() {  // Imprime no LCD
           }
           lcd.print(floatFromK[i], 1);
           lcd.print(",");
-          lcd.print(timeFromK[i]);
+          if (timeFromK[i] != 0.0) {
+            lcd.print(timeFromK[i]);
+          }
         }
-        delay(5000);
+        delay(3000);
         lcd.clear();
       }
 
@@ -782,7 +794,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(0, i);
         lcd.print(mfcFromK[i]);
         lcd.print("|");
-        switch (messageFromK[i][0]) {
+        switch (messageFromK[0]) {
           case '1':
             lcd.print("S|");
             break;
