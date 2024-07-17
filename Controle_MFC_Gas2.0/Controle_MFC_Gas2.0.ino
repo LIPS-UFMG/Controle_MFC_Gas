@@ -139,6 +139,7 @@ Keypad keypad = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS,
 //MFCs
 //***************************************************************************************************************************
 
+#define BUZZER 7
 //Pinagem MFC 1
 #define SPFlux1_Pin 3
 #define Vopen1_Pin 2
@@ -181,6 +182,9 @@ void initializeMFC(int SPFlux_Pin, int Vopen_Pin, float& Flux_Max, float Fator_M
 }
 
 void setup() {
+
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
 
   //Inicia porta serial
   Serial.begin(9600);
@@ -352,6 +356,9 @@ void timer() {  //
       timeFromK[configIndex] = totalTime;
       configIndex++;
       timerInit = true;
+      digitalWrite(BUZZER, HIGH);
+      delay(200);
+      digitalWrite(BUZZER, LOW);
 
     } else {  // acabou o processo
       switch (intFromUser) {
@@ -367,7 +374,18 @@ void timer() {  //
       lcd.clear();
       lcd.setCursor(0, 2);
       lcd.print("Processo finalizado!");
-      delay(5000);
+      digitalWrite(BUZZER, HIGH);
+      delay(100);
+      digitalWrite(BUZZER, LOW);
+      delay(100);
+      digitalWrite(BUZZER, HIGH);
+      delay(100);
+      digitalWrite(BUZZER, LOW);
+      delay(100);
+      digitalWrite(BUZZER, HIGH);
+      delay(100);
+      digitalWrite(BUZZER, LOW);
+      delay(2000);
       lcd.clear();
     }
   }
@@ -747,7 +765,14 @@ void printToLcd() {  // Imprime no LCD
             lcd.print(timeFromK[i]);
           }
         }
-        delay(3000);
+        digitalWrite(BUZZER, HIGH);
+        delay(200);
+        digitalWrite(BUZZER, LOW);
+        delay(100);
+        digitalWrite(BUZZER, HIGH);
+        delay(200);
+        digitalWrite(BUZZER, LOW);
+        delay(2000);
         lcd.clear();
       }
 
