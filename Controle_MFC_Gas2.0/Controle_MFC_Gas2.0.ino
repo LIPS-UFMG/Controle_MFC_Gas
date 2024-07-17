@@ -230,7 +230,7 @@ void loop() {
 
 bool validData(char* buffer) {  // Realiza validação dos dados inseridos no teclado
 
-  int input = atoi(buffer);
+  float input = atof(buffer);
   bool ret = false;
 
   switch (event) {
@@ -247,7 +247,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = ((input >= 0) && (input <= 2000));  // numero máximo de entrada de valor
       break;
     case insertTime:
-      ret = ((input >= 0) && (input <= 999));  // numero máximo de entrada de valor
+      ret = ((input >= 0.1) && (input <= 999));  // numero máximo de entrada de valor
       break;
     default:
       ret = true;
@@ -289,9 +289,15 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
 
       case insertData:
         floatFromK[configIndex] = atof(inputBufferK);
+        if (messageFromK[configIndex][0] != '1') {  // se a configuração não for setpoint
+          strcpy(messageFromUser, messageFromK[configIndex]);
+          intFromUser = mfcFromK[configIndex];
+          floatFromUser = floatFromK[configIndex];
+        }
         break;
       case insertTime:
         timeFromK[configIndex] = atof(inputBufferK);
+
 
         // Serial.println("Dados: ");
         // Serial.print("A: ");
@@ -342,6 +348,7 @@ void timer() {  //
           SPFlux2 = 0;
           break;
       }
+      timeFromK[configIndex] = totalTime;
       configIndex++;
       timerInit = true;
 
@@ -354,6 +361,7 @@ void timer() {  //
           SPFlux2 = 0;
           break;
       }
+      timeFromK[configIndex] = totalTime;
       totalTime = 0;
       lcd.clear();
       lcd.setCursor(0, 2);
@@ -377,10 +385,17 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
       if (validData(inputBufferK)) {  // se dado inserido for válido
         parseData(arduino);
         newDataFromPC = true;
+
         if (event == infoMFC2) {  // Caso processo tenha sido finalizado
           event = infoFlux;       // volta a tela inicial
           firstPrint = 1;         // Seta para primeira impressão rápida
-        } else if ((event == insertTime)) {
+        } else if (event == insertData) {
+          if (messageFromK[configIndex][0] != '1') {
+            event += 2;
+          } else {
+            event++;
+          }
+        } else if (event == insertTime) {
           if (configIndex < quantidadeConfig) {
             event = config;
             configIndex++;
@@ -785,8 +800,9 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(10, i);
         lcd.print("|");
         lcd.print(timeFromK[i]);
-        if (timeFromK[i] == 0) {
-          lcd.print(" + ");
+        if (i <= configIndex) {
+          lcd.setCursor(17, i);
+          lcd.print("+");
         }
       }
       lcd.setCursor(18, 1);
