@@ -49,12 +49,15 @@ Alterar:
 #include <LiquidCrystal_I2C.h>  //
 #include <Wire.h>               // Biblioteca do adaptador i2c do display
 
+#define QTD_MFC 2
+
 int event = 6,     // Indice começa mostrando informações do fluxo
   firstPrint = 0;  // Evita delay na transição para a tela "infoFlux"
 
 const int
   pc = 1,
-  arduino = 2,                                               // Fonte dos dados inseridos
+  arduino = 2,  // Fonte dos dados inseridos
+  arduinoTimer = 3,
   config = 1, qtdConfig = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
   insertTime = 5, infoFlux = 6,
   //  infoFlux2 = 8,
@@ -69,7 +72,9 @@ const char
 bool
   readInProgress = false,  // Indica estado da leitura
   newDataFromPC = false,   // Simboliza se houve inserção de dados pelo usuario
-  timerInit = false;
+
+  timerInit1 = false,
+  timerInit2 = false;
 
 byte
   bytesRecvd = 0,    // Tamanho da mensagem recebida
@@ -91,16 +96,24 @@ int
   configIndex = 0,       //
   timeFromUser = 0,      //
   intFromUser = 0,       // MFC selecionada pelo serial   ?
-  MFC = 0;               // MFC que será alterada
+  MFC = 0,               // MFC que será alterada
+
+  mfc1Index = 0,  //
+  mfc2Index = 0,  //
+  done1 = 0,
+  done2 = 0;
 
 unsigned long
-  baseTime = 0,    //
-  timePassed = 0;  //
+  baseTime1 = 0,  //
+  baseTime2 = 0;  //
+
 float
-  floatFromK[10] = { 0 },  //
-  timeFromK[10] = { 0 },   //
-  floatFromUser = 0.0,     // Valores de configuração do MFC
-  totalTime = 0.0;         //
+  floatFromK[10] = { 0 },          //
+  timeFromK[10] = { 0 },           //
+  floatFromUser[QTD_MFC] = { 0 },  // Valores de configuração do MFC
+
+  totalTime1 = 0.0,  //
+  totalTime2 = 0.0;  //
 
 bool
   printHelp = false,                                 // Estado para imprimir ajuda
@@ -217,7 +230,8 @@ void controleMFC(int SPFlux_Pin, int Vopen_Pin, float& SPFlux, float& Flux, int&
 void loop() {
   getDataFromKeyboard();  // Recebe dados do teclado
   getDataFromPC();        // Recebe dados do pc
-  timer();
+  timer(1);
+  timer(2);
   configIno();   // Configura parametro a ser atualizado
   printToLcd();  // Imprime informações no display
   replyToPC();   // Imprime informações no pc
@@ -262,7 +276,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
 
 //=============
 
-void parseData(int source) {  // Converte dados inseridos para controle das MFCs
+void parseData(int source, int mfc = 0) {  // Converte dados inseridos para controle das MFCs
 
   if (source == pc) {  // Trata dados se foram inseridos pelo computador
     char* strtokIndx;
@@ -274,7 +288,7 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
     intFromUser = atoi(strtokIndx);
 
     strtokIndx = strtok(NULL, ",");
-    floatFromUser = atof(strtokIndx);
+    floatFromUser[intFromUser] = atof(strtokIndx);
   }
 
   if (source == arduino) {  // Trata dados se foram inseridos pelo arduino
@@ -297,7 +311,7 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
         if (messageFromK[0] != '1') {  // se a configuração não for setpoint
           strcpy(messageFromUser, messageFromK);
           intFromUser = mfcFromK[configIndex];
-          floatFromUser = floatFromK[configIndex];
+          floatFromUser[intFromUser] = floatFromK[configIndex];
         }
         break;
       case insertTime:
@@ -315,81 +329,98 @@ void parseData(int source) {  // Converte dados inseridos para controle das MFCs
     }
   }
 
-  if (source == timer) {
+  if (source == arduinoTimer) {
     strcpy(messageFromUser, messageFromK);
-    intFromUser = mfcFromK[configIndex];
-    floatFromUser = floatFromK[configIndex];
-    timeFromUser = timeFromK[configIndex];
+    intFromUser = mfc;
+    if (mfc == 1) {
+      floatFromUser[mfc] = floatFromK[mfc1Index];
+      timeFromUser = timeFromK[mfc1Index];
+    } else if (mfc == 2) {
+      floatFromUser[mfc] = floatFromK[mfc2Index];
+      timeFromUser = timeFromK[mfc2Index];
+    }
   }
 }
 
 //=============
 
-void timer() {  //
+void timer(int timerNum) {  //
+
+  unsigned long& baseTime = (timerNum == 1) ? baseTime1 : baseTime2;
+  bool& timerInit = (timerNum == 1) ? timerInit1 : timerInit2;
+  int& mfcIndex = (timerNum == 1) ? mfc1Index : mfc2Index;
+  int& done = (timerNum == 1) ? done1 : done2;
+  float& totalTime = (timerNum == 1) ? totalTime1 : totalTime2;
+  float& SPFlux = (timerNum == 1) ? SPFlux1 : SPFlux2;
 
   if (timerInit) {
     baseTime = millis();
-    totalTime = timeFromK[configIndex];
+    mfcIndex = 0;
+    int aux = done;
+
+    for (int i = quantidadeConfig; i >= 1; i--) {
+      if (mfcFromK[i] == timerNum) {
+        if (aux == 0) {
+          mfcIndex = i;
+        } else {
+          aux--;
+        }
+      }
+    }
+
+    if (mfcIndex > 0) {
+      totalTime = timeFromK[mfcIndex];
+      parseData(arduinoTimer, timerNum);
+    } else {
+      done = 0;
+    }
+
     timerInit = false;
-    parseData(timer);
   }
 
   if (totalTime > 0) {
-    if (timeFromK[configIndex] > 0) {
-      timePassed = millis() - baseTime;
+    if (timeFromK[mfcIndex] > 0) {
+      unsigned long timePassed = millis() - baseTime;
       float minutesPassed = timePassed / 60000.0;
       float timeRemaining = totalTime - minutesPassed;
       if (timeRemaining > 0) {
-        timeFromK[configIndex] = timeRemaining;
+        timeFromK[mfcIndex] = timeRemaining;
       } else {
-        timeFromK[configIndex] = 0;
+        timeFromK[mfcIndex] = 0;
       }
-    } else if (configIndex < quantidadeConfig) {  // acabou a temporização mais ainda há mais na fila
-      switch (intFromUser) {
-        case 1:
-          SPFlux1 = 0;
-          break;
-        case 2:
-          SPFlux2 = 0;
-          break;
-      }
-      timeFromK[configIndex] = totalTime;
+    } else if (configIndex < quantidadeConfig) {  // acabou a temporização mas ainda há mais na fila
+      timeFromK[mfcIndex] = totalTime;
       configIndex++;
+      done++;
       timerInit = true;
       digitalWrite(BUZZER, HIGH);
       delay(200);
       digitalWrite(BUZZER, LOW);
-
     } else {  // acabou o processo
-      switch (intFromUser) {
-        case 1:
-          SPFlux1 = 0;
-          break;
-        case 2:
-          SPFlux2 = 0;
-          break;
-      }
-      timeFromK[configIndex] = totalTime;
+      SPFlux = 0;
+      timeFromK[mfcIndex] = totalTime;
       totalTime = 0;
-      lcd.clear();
-      lcd.setCursor(0, 2);
-      lcd.print("Processo finalizado!");
-      digitalWrite(BUZZER, HIGH);
-      delay(200);
-      digitalWrite(BUZZER, LOW);
-      delay(200);
-      digitalWrite(BUZZER, HIGH);
-      delay(200);
-      digitalWrite(BUZZER, LOW);
-      delay(200);
-      digitalWrite(BUZZER, HIGH);
-      delay(200);
-      digitalWrite(BUZZER, LOW);
-      delay(2000);
-      lcd.clear();
     }
   }
 }
+
+
+// lcd.clear();
+// lcd.setCursor(0, 2);
+// lcd.print("Processo finalizado!");
+// digitalWrite(BUZZER, HIGH);
+// delay(200);
+// digitalWrite(BUZZER, LOW);
+// delay(200);
+// digitalWrite(BUZZER, HIGH);
+// delay(200);
+// digitalWrite(BUZZER, LOW);
+// delay(200);
+// digitalWrite(BUZZER, HIGH);
+// delay(200);
+// digitalWrite(BUZZER, LOW);
+// delay(2000);
+// lcd.clear();
 
 //=============
 
@@ -422,7 +453,8 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
             configIndex++;
           } else {
             configIndex = 1;
-            timerInit = true;
+            timerInit1 = true;
+            timerInit2 = true;
             event++;
           }
         } else {
@@ -938,22 +970,26 @@ void replyToPC() {  // Imprime informações no serial (pc)
 
     if (SPMFC_update) {
       Serial.print("Set Point MFC Configurado: ");
-      Serial.println(floatFromUser);
+      Serial.println(floatFromUser[1]);
+      Serial.println(floatFromUser[2]);
     }
 
     if (FluxMaxMFC_update) {
       Serial.print("Fluxo Maximo MFC Configurado: ");
-      Serial.println(floatFromUser);
+      Serial.println(floatFromUser[1]);
+      Serial.println(floatFromUser[2]);
     }
 
     if (FatorMFC_update) {
       Serial.print("Fator MFC Configurado: ");
-      Serial.println(floatFromUser);
+      Serial.println(floatFromUser[1]);
+      Serial.println(floatFromUser[2]);
     }
 
     if (FatorGas_update) {
       Serial.print("Fator Gas Configurado: ");
-      Serial.println(floatFromUser);
+      Serial.println(floatFromUser[1]);
+      Serial.println(floatFromUser[2]);
     }
 
     //Serial.print(printHelp);
@@ -1004,10 +1040,10 @@ void configMFC() {  // Atualiza valores nas MFCs
   switch (MFC) {
 
     case 1:
-      if (SPMFC_update) { SPFlux1 = floatFromUser; }
-      if (FluxMaxMFC_update) { Flux_Max1 = floatFromUser; }
-      if (FatorMFC_update) { Fator_MFC1 = floatFromUser; }
-      if (FatorGas_update) { Fator_Gas_MFC1 = floatFromUser; }
+      if (SPMFC_update) { SPFlux1 = floatFromUser[MFC]; }
+      if (FluxMaxMFC_update) { Flux_Max1 = floatFromUser[MFC]; }
+      if (FatorMFC_update) { Fator_MFC1 = floatFromUser[MFC]; }
+      if (FatorGas_update) { Fator_Gas_MFC1 = floatFromUser[MFC]; }
 
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {  //
         SPFlux1_Out = (255 * SPFlux1 * (Fator_MFC1 / Fator_Gas_MFC1)) / Flux_Max1;    // Regra de 3 simples
@@ -1020,10 +1056,10 @@ void configMFC() {  // Atualiza valores nas MFCs
       break;
 
     case 2:
-      if (SPMFC_update) { SPFlux2 = floatFromUser; }
-      if (FluxMaxMFC_update) { Flux_Max2 = floatFromUser; }
-      if (FatorMFC_update) { Fator_MFC2 = floatFromUser; }
-      if (FatorGas_update) { Fator_Gas_MFC2 = floatFromUser; }
+      if (SPMFC_update) { SPFlux2 = floatFromUser[MFC]; }
+      if (FluxMaxMFC_update) { Flux_Max2 = floatFromUser[MFC]; }
+      if (FatorMFC_update) { Fator_MFC2 = floatFromUser[MFC]; }
+      if (FatorGas_update) { Fator_Gas_MFC2 = floatFromUser[MFC]; }
 
       if (SPMFC_update || FluxMaxMFC_update || FatorMFC_update || FatorGas_update) {  //
         SPFlux2_Out = (255 * SPFlux2 * (Fator_MFC2 / Fator_Gas_MFC2)) / Flux_Max2;    // Regra de 3 simples
