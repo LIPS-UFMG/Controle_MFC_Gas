@@ -56,9 +56,9 @@ const int
   pc = 1,
   arduino = 2,                                               // Fonte dos dados inseridos
   config = 1, qtdConfig = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
-  insertTime = 5, infoFlux = 6, infoConfig = 7,
+  insertTime = 5, infoFlux = 6,
   //  infoFlux2 = 8,
-  infoMFC1 = 8, infoMFC2 = 9;  // Telas com informações dos MFCs
+  infoConfigMFC1 = 7, infoConfigMFC2 = 8, infoMFC1 = 9, infoMFC2 = 10;  // Telas com informações dos MFCs
 //  infoMFC3 = 10;
 
 const char
@@ -375,15 +375,15 @@ void timer() {  //
       lcd.setCursor(0, 2);
       lcd.print("Processo finalizado!");
       digitalWrite(BUZZER, HIGH);
-      delay(100);
+      delay(200);
       digitalWrite(BUZZER, LOW);
-      delay(100);
+      delay(200);
       digitalWrite(BUZZER, HIGH);
-      delay(100);
+      delay(200);
       digitalWrite(BUZZER, LOW);
-      delay(100);
+      delay(200);
       digitalWrite(BUZZER, HIGH);
-      delay(100);
+      delay(200);
       digitalWrite(BUZZER, LOW);
       delay(2000);
       lcd.clear();
@@ -444,7 +444,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
 
-      if (event == infoConfig) {
+      if (event == infoConfigMFC1) {
         firstPrint = 1;  // evita delay para printar
       }
 
@@ -813,7 +813,7 @@ void printToLcd() {  // Imprime no LCD
       }
       break;
 
-    case infoConfig:
+    case infoConfigMFC1:
       lcd.print("M|-| Val  | Time  |");
       for (int i = 1; i <= quantidadeConfig; i++) {
         lcd.setCursor(0, i);
