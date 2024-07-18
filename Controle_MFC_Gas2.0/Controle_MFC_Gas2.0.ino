@@ -609,7 +609,7 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
   lcd.print(Flux_Max, 1);
   lcd.setCursor(18, 1);
   lcd.print("|");
-  lcd.print(index + 2);
+  lcd.print(index + 3);
 
   lcd.setCursor(0, 2);
   lcd.print("C FatorMFC:");
@@ -622,7 +622,7 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
   lcd.print(" FatorGas:");
   lcd.print(Fator_Gas_MFC, 1);
   lcd.setCursor(18, 3);
-  lcd.print("|4");
+  lcd.print("|5");
 }
 
 void printToLcd() {  // Imprime no LCD
@@ -807,7 +807,7 @@ void printToLcd() {  // Imprime no LCD
 
 
         lcd.setCursor(0, 3);
-        lcd.print("==================|4");
+        lcd.print("==================|5");
 
         firstPrint = 0;
       }
@@ -847,7 +847,44 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(18, 2);
       lcd.print("|/");
       lcd.setCursor(18, 3);
-      lcd.print("|4");
+      lcd.print("|5");
+
+      break;
+    case infoConfigMFC2:
+      lcd.print("M|-| Val  | Time  |");
+      for (int i = 1; i <= quantidadeConfig; i++) {
+        lcd.setCursor(0, i);
+        lcd.print(mfcFromK[i]);
+        lcd.print("|");
+        switch (messageFromK[0]) {
+          case '1':
+            lcd.print("S|");
+            break;
+          case '2':
+            lcd.print("F|");
+            break;
+          case '3':
+            lcd.print("M|");
+            break;
+          case '4':
+            lcd.print("G|");
+            break;
+        }
+        lcd.print(floatFromK[i], 1);
+        lcd.setCursor(10, i);
+        lcd.print("|");
+        lcd.print(timeFromK[i]);
+        if (i <= configIndex) {
+          lcd.setCursor(17, i);
+          lcd.print("+");
+        }
+      }
+      lcd.setCursor(18, 1);
+      lcd.print("|3");
+      lcd.setCursor(18, 2);
+      lcd.print("|/");
+      lcd.setCursor(18, 3);
+      lcd.print("|5");
 
       break;
     /*
