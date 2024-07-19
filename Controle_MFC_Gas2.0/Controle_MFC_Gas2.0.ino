@@ -53,7 +53,7 @@ Alterar:
 
 int event = 6,     // Indice começa mostrando informações do fluxo
   firstPrint = 0,  // Evita delay na transição para a tela "infoFlux"
-  j1 = 0, j2 = 0;
+  j1 = 0, j2 = 0, minutes = 0, seconds = 0;
 
 const int
   pc = 1,
@@ -256,7 +256,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = ((input >= 1) && (input <= 4));  // Só permite seleção de 1 a 4 no menu principal
       break;
     case qtdConfig:
-      ret = ((input >= 1) && (input <= 3));  // maximo de configs
+      ret = ((input >= 1) && (input <= 4));  // maximo de configs
       break;
     case selectMFC:
       ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
@@ -265,7 +265,7 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
       ret = ((input >= 0) && (input <= 2000));  // numero máximo de entrada de valor
       break;
     case insertTime:
-      ret = ((input >= 0.1) && (input <= 999));  // numero máximo de entrada de valor
+      ret = ((input >= 0.1) && (input <= 999) && ((input - (int)input) < 0.6));
       break;
     default:
       ret = true;
@@ -315,8 +315,12 @@ void parseData(int source, int mfc = 0) {  // Converte dados inseridos para cont
         }
         break;
       case insertTime:
-        timeFromK[configIndex] = atof(inputBufferK);
 
+
+        float timeInMinutes = atof(inputBufferK);
+        int minutes = (int)timeInMinutes;                    // Parte inteira dos minutos
+        float seconds = (timeInMinutes - minutes);           // Parte fracionária convertida para segundos
+        timeFromK[configIndex] = minutes + (seconds / 0.6);  // Converte tudo para milissegundos
 
         // Serial.println("Dados: ");
         // Serial.print("A: ");
@@ -356,6 +360,7 @@ void timer(int timerNum) {  //
   float& totalTime = (timerNum == 1) ? totalTime1 : totalTime2;
   float& SPFlux = (timerNum == 1) ? SPFlux1 : SPFlux2;
 
+
   if (timerInit) {
     baseTime = millis();
     mfcIndex = 0;
@@ -382,9 +387,7 @@ void timer(int timerNum) {  //
     Serial.print("totalTime");
     Serial.println(totalTime);
     timerInit = false;
-  }
-
-  if (totalTime > 0) {
+  } else if (totalTime > 0) {
     if (timeFromK[mfcIndex] > 0) {
       unsigned long timePassed = millis() - baseTime;
       float minutesPassed = timePassed / 60000.0;
@@ -457,6 +460,9 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
           }
         } else if (event == insertTime) {
           if (configIndex < quantidadeConfig) {
+            digitalWrite(BUZZER, HIGH);
+            delay(200);
+            digitalWrite(BUZZER, LOW);
             event = selectMFC;
             configIndex++;
           } else {
@@ -652,26 +658,26 @@ void printConfigOptions() {
 
 // Impressão da tela de informações dos MFC's
 void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, float Fator_Gas_MFC) {
-  lcd.print("M SetPoint:");
+  lcd.print("M|SetPoint:");
   lcd.print(SPFlux, 1);
   lcd.setCursor(18, 0);
   lcd.print("|");
   lcd.setCursor(0, 1);
-  lcd.print("F FluxoMax:");
+  lcd.print("F|FluxoMax:");
   lcd.print(Flux_Max, 1);
   lcd.setCursor(18, 1);
   lcd.print("|");
   lcd.print(index + 3);
 
   lcd.setCursor(0, 2);
-  lcd.print("C FatorMFC:");
+  lcd.print("C|FatorMFC:");
   lcd.print(Fator_MFC, 1);
   lcd.setCursor(18, 2);
   lcd.print("|/");
 
   lcd.setCursor(0, 3);
   lcd.print(index);
-  lcd.print(" FatorGas:");
+  lcd.print("|FatorGas:");
   lcd.print(Fator_Gas_MFC, 1);
   lcd.setCursor(18, 3);
   lcd.print("|5");
@@ -700,12 +706,14 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(0, 0);
       lcd.print("*------------------*");
       lcd.setCursor(0, 1);
-      lcd.print("| Configuracoes");
+      lcd.print("| Qtd setpoints");
+      lcd.setCursor(1, 2);
+      lcd.print("->");
+      lcd.print(inputBufferK);
       lcd.setCursor(19, 1);
       lcd.print("|");
       lcd.setCursor(0, 2);
-      lcd.print("| Qtd: ");
-      lcd.print(inputBufferK);
+      lcd.print("|");
       lcd.setCursor(19, 2);
       lcd.print("|");
       lcd.setCursor(0, 3);
@@ -793,8 +801,7 @@ void printToLcd() {  // Imprime no LCD
 
     case infoFlux:
       if (SPMFC1_update || SPMFC2_update || FluxMaxMFC1_update || FluxMaxMFC2_update || FatorMFC1_update || FatorMFC2_update || FatorGas1_update || FatorGas2_update) {
-        lcd.print("Configurado!");
-        for (int i = 1; i <= quantidadeConfig; i++) {
+        for (int i = 0; i <= quantidadeConfig; i++) {
           lcd.setCursor(1, i);
           lcd.print(mfcFromK[i]);
           lcd.print(",");
@@ -803,10 +810,10 @@ void printToLcd() {  // Imprime no LCD
               lcd.print("SP,");
               break;
             case '2':
-              lcd.print("FM,");
+              lcd.print("Mx,");
               break;
             case '3':
-              lcd.print("MFC,");
+              lcd.print("FM,");
               break;
             case '4':
               lcd.print("FG,");
@@ -814,9 +821,14 @@ void printToLcd() {  // Imprime no LCD
           }
           lcd.print(floatFromK[i], 1);
           lcd.print(",");
-          if (timeFromK[i] != 0.0) {
-            lcd.print(timeFromK[i]);
+          minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
+          seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+          lcd.print(minutes);
+          lcd.print(":");
+          if (seconds < 10) {
+            lcd.print("0");  // Para garantir que sempre mostre dois dígitos para segundos
           }
+          lcd.print(seconds);
         }
         digitalWrite(BUZZER, HIGH);
         delay(200);
@@ -867,7 +879,7 @@ void printToLcd() {  // Imprime no LCD
       break;
 
     case infoConfigMFC1:
-      lcd.print("M|-| Val  | Time  |");
+      lcd.print("M|--| Val  | Time |");
       lcd.setCursor(0, 1);
       lcd.print("F|");
       lcd.setCursor(0, 2);
@@ -875,32 +887,48 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(0, 3);
       lcd.print("1|");
       j1 = 1;
-      for (int i = 1; i <= quantidadeConfig; i++) {
-        if (mfcFromK[i] == 1) {
-          lcd.setCursor(2, j1);
-          switch (messageFromK[0]) {
-            case '1':
-              lcd.print("S|");
-              break;
-            case '2':
-              lcd.print("F|");
-              break;
-            case '3':
-              lcd.print("M|");
-              break;
-            case '4':
-              lcd.print("G|");
-              break;
+      if (quantidadeConfig == 0) {
+        lcd.setCursor(4, 1);
+        lcd.print("|      |");
+        lcd.setCursor(4, 2);
+        lcd.print("|      |");
+        lcd.setCursor(4, 3);
+        lcd.print("|      |");
+      } else {
+        for (int i = 1; i <= quantidadeConfig; i++) {
+          if (mfcFromK[i] == 1) {
+            lcd.setCursor(2, j1);
+            switch (messageFromK[0]) {
+              case '1':
+                lcd.print("SP|");
+                break;
+              case '2':
+                lcd.print("MX|");
+                break;
+              case '3':
+                lcd.print("FM|");
+                break;
+              case '4':
+                lcd.print("FG|");
+                break;
+            }
+            lcd.print(floatFromK[i], 1);
+            lcd.setCursor(11, j1);
+            lcd.print("|");
+            minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
+            seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+            lcd.print(minutes);
+            lcd.print(":");
+            if (seconds < 10) {
+              lcd.print("0");  // Para garantir que sempre mostre dois dígitos para segundos
+            }
+            lcd.print(seconds);
+            if (j1 <= count1) {
+              lcd.setCursor(17, j1);
+              lcd.print("+");
+            }
+            j1++;
           }
-          lcd.print(floatFromK[i], 1);
-          lcd.setCursor(10, j1);
-          lcd.print("|");
-          lcd.print(timeFromK[i]);
-          if (j1 <= count1) {
-            lcd.setCursor(17, j1);
-            lcd.print("+");
-          }
-          j1++;
         }
       }
       lcd.setCursor(18, 1);
@@ -913,7 +941,7 @@ void printToLcd() {  // Imprime no LCD
 
     case infoConfigMFC2:
 
-      lcd.print("M|-| Val  | Time  |");
+      lcd.print("M|--| Val  | Time |");
       lcd.setCursor(0, 1);
       lcd.print("F|");
       lcd.setCursor(0, 2);
@@ -921,33 +949,49 @@ void printToLcd() {  // Imprime no LCD
       lcd.setCursor(0, 3);
       lcd.print("2|");
       j2 = 1;
+      if (quantidadeConfig == 0) {
+        lcd.setCursor(4, 1);
+        lcd.print("|      |");
+        lcd.setCursor(4, 2);
+        lcd.print("|      |");
+        lcd.setCursor(4, 3);
+        lcd.print("|      |");
+      } else {
+        for (int i = 1; i <= quantidadeConfig; i++) {
+          if (mfcFromK[i] == 2) {
+            lcd.setCursor(2, j2);
+            switch (messageFromK[0]) {
+              case '1':
+                lcd.print("SP|");
+                break;
+              case '2':
+                lcd.print("MX|");
+                break;
+              case '3':
+                lcd.print("FM|");
+                break;
+              case '4':
+                lcd.print("FG|");
+                break;
+            }
+            lcd.print(floatFromK[i], 1);
+            lcd.setCursor(11, j2);
+            lcd.print("|");
+            minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
+            seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+            lcd.print(minutes);
+            lcd.print(":");
+            if (seconds < 10) {
+              lcd.print("0");  // Para garantir que sempre mostre dois dígitos para segundos
+            }
+            lcd.print(seconds);
 
-      for (int i = 1; i <= quantidadeConfig; i++) {
-        if (mfcFromK[i] == 2) {
-          lcd.setCursor(2, j2);
-          switch (messageFromK[0]) {
-            case '1':
-              lcd.print("S|");
-              break;
-            case '2':
-              lcd.print("F|");
-              break;
-            case '3':
-              lcd.print("M|");
-              break;
-            case '4':
-              lcd.print("G|");
-              break;
+            if (j2 <= count2) {
+              lcd.setCursor(17, j2);
+              lcd.print("+");
+            }
+            j2++;
           }
-          lcd.print(floatFromK[i], 1);
-          lcd.setCursor(10, j2);
-          lcd.print("|");
-          lcd.print(timeFromK[i]);
-          if (j2 <= count2) {
-            lcd.setCursor(17, j2);
-            lcd.print("+");
-          }
-          j2++;
         }
       }
       lcd.setCursor(18, 1);
