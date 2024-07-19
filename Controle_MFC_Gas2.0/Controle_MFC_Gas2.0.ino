@@ -67,8 +67,8 @@ const int
 
 const char
   point = '#',
-  backMarker = 'B', clearMarker = 'C', doneMarker = 'D',  // Teclas especiais para teclado
-  startMarker = '<', endMarker = '>';                     // Teclas para comandos no pc
+  advanceMarker = 'A', backMarker = 'B', clearMarker = 'C', doneMarker = 'D',  // Teclas especiais para teclado
+  startMarker = '<', endMarker = '>';                                          // Teclas para comandos no pc
 
 bool
   readInProgress = false,  // Indica estado da leitura
@@ -443,65 +443,88 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
   char key = keypad.getKey();  // Atribui a variavel a leitura do teclado
 
-  if (key != NO_KEY && key != 'A') {  // Caso tecla seja precionada
+  if (key != NO_KEY) {  // Caso tecla seja precionada
     readInProgress = true;
 
-    if (key == doneMarker) {          // Tecla D submete valor inserido
-      if (validData(inputBufferK)) {  // se dado inserido for válido
-        parseData(arduino);
-        newDataFromPC = true;
-
-        if (event == config) { quantidadeConfig = 1; }
-
-        if (event == infoMFC2) {  // Caso processo tenha sido finalizado
-          event = infoFlux;       // volta a tela inicial
-          firstPrint = 1;         // Seta para primeira impressão rápida
-        } else if (event == config || event == insertData) {
-          if (messageFromK[0] != '1') {
-            event += 2;
-          } else {
-            event++;
-          }
-        } else if (event == insertTime) {
-          if (configIndex < quantidadeConfig) {
-            digitalWrite(BUZZER, HIGH);
-            delay(200);
-            digitalWrite(BUZZER, LOW);
-            event = selectMFC;
-            configIndex++;
-          } else {
-            configIndex = 1;
-            timerInit1 = true;
-            timerInit2 = true;
-            event++;
-          }
-        } else {
-          event++;  // Passa para próxima tela
-        }
-      } else {  // Se dado invalido
-        lcd.clear();
-        lcd.setCursor(0, 1);
-        lcd.print("Numero invalido");
-        delay(1000);
+    if (key == advanceMarker) {
+      if (event == infoMFC2) {  // Caso ultimatela
+        event = infoFlux;       // volta a tela inicial
+        firstPrint = 1;         // flag para primeira impressão rápida
+      } else if (event >= infoFlux) {
+        event++;
       }
-      for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
-        inputBufferK[i] = '\0';
-      }
-      messageIndex = 0;
       readInProgress = false;
       lcd.clear();
     }
 
-    if (key == backMarker) {  // Tecla B, volta para tela anterior
+    if (key == doneMarker) {  // Tecla D submete valor inserido
+      if (event < infoFlux) {
+        if (validData(inputBufferK)) {  // se dado inserido for válido
+          parseData(arduino);
+          newDataFromPC = true;
 
-      if (event == infoConfigMFC1) {
-        firstPrint = 1;  // evita delay para printar
+          if (event == config) {
+            quantidadeConfig = 1;
+          }
+
+          if (event == config || event == insertData) {
+            if (messageFromK[0] != '1') {
+              event += 2;
+            } else {
+              event++;
+            }
+          } else if (event == insertTime) {
+            if (configIndex < quantidadeConfig) {
+              digitalWrite(BUZZER, HIGH);
+              delay(200);
+              digitalWrite(BUZZER, LOW);
+              event = selectMFC;
+              configIndex++;
+            } else {
+              configIndex = 1;
+              timerInit1 = true;
+              timerInit2 = true;
+              event++;
+            }
+          } else {
+            event++;  // Passa para próxima tela
+          }
+        } else {  // Se dado invalido
+          lcd.clear();
+          lcd.setCursor(0, 1);
+          lcd.print("Numero invalido");
+          delay(1000);
+        }
+        for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
+          inputBufferK[i] = '\0';
+        }
+        messageIndex = 0;
+        lcd.clear();
       }
+      readInProgress = false;
+    }
 
-      if (event == config) {  // Se tela for de configuração,
-        quantidadeConfig = 0;
-        event = infoFlux;                      // volta para a de informação de fluxo
-      } else if (event == infoFlux) {          // Situação contrária a anterior
+    if (key == clearMarker) {  // Tecla C, apaga último caractere
+      if (event < infoFlux) {
+        if (messageIndex > 0) {  // caso array não nulo
+          inputBufferK[--messageIndex] = '\0';
+        }
+      } else if (event >= infoFlux) {  // Situação contrária a anterior
+
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Modo Configuracao:");
+        lcd.setCursor(0, 1);
+        lcd.print(" B -> Voltar");
+        lcd.setCursor(0, 2);
+        lcd.print(" C -> Limpar");
+        lcd.setCursor(0, 3);
+        lcd.print(" D -> Submeter");
+        digitalWrite(BUZZER, HIGH);
+        delay(200);
+        digitalWrite(BUZZER, LOW);
+        delay(4800);
+
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           timeFromK[i] = '\0';
         }
@@ -509,29 +532,43 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         count1 = 0;
         count2 = 0;
         configIndex = 1;
+        messageIndex = 0;
         quantidadeConfig = 0;
-      } else if (event == selectMFC) {
-        event -= 2;
-      } else {
-        event--;
       }
-
-      for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
-        inputBufferK[i] = '\0';
-      }
-      messageIndex = 0;
       readInProgress = false;
       lcd.clear();
     }
 
-    if (event < infoFlux) {      // Impede entrada no teclado e limpeza do display a cada tecla pressionada, se estiver na tela de visualização
-      if (key == clearMarker) {  // Tecla C, apaga último caractere
-        if (messageIndex > 0) {  // caso array não nulo
-          inputBufferK[--messageIndex] = '\0';
+    if (key == backMarker) {  // Tecla B, volta para tela anterior
+
+      if (event < infoFlux) {
+        for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
+          inputBufferK[i] = '\0';
         }
-        readInProgress = false;
+        messageIndex = 0;
       }
 
+      if (event == infoConfigMFC1) {
+        firstPrint = 1;  // evita delay para printar
+      }
+
+      if (event == config) {  // Se tela for de configuração,
+        quantidadeConfig = 0;
+        event = infoFlux;  // volta para a de informação de fluxo
+      } else if (event == selectMFC) {
+        event -= 2;
+      } else if (event == infoFlux) {
+        event = infoMFC2;
+      } else {
+        event--;
+      }
+
+      readInProgress = false;
+      lcd.clear();
+    }
+
+
+    if (event < infoFlux) {                                  // Impede entrada no teclado e limpeza do display a cada tecla pressionada, se estiver na tela de visualização
       if (readInProgress) {                                  // Se ainda estiver lendo,
         if (messageIndex < (buffSizeK - 1)) {                // Impede que a mensagem ultrapasse o limite do buffer
           if (event != insertData && event != insertTime) {  // Nestas telas limite para 1 caractere
