@@ -401,6 +401,10 @@ void timer(int timerNum) {  //
       timeFromK[mfcIndex] = totalTime;
       configIndex++;
       count++;
+      if (count >= 2) {
+        count = 5;
+        quantidadeConfig--;
+      }
       SPFlux = 0;
       timerInit = true;
       digitalWrite(BUZZER, HIGH);
@@ -801,8 +805,8 @@ void printToLcd() {  // Imprime no LCD
 
     case infoFlux:
       if (SPMFC1_update || SPMFC2_update || FluxMaxMFC1_update || FluxMaxMFC2_update || FatorMFC1_update || FatorMFC2_update || FatorGas1_update || FatorGas2_update) {
-        for (int i = 0; i <= quantidadeConfig; i++) {
-          lcd.setCursor(1, i);
+        for (int i = 1; i <= quantidadeConfig; i++) {
+          lcd.setCursor(1, i - 1);
           lcd.print(mfcFromK[i]);
           lcd.print(",");
           switch (messageFromK[0]) {
@@ -895,7 +899,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(4, 3);
         lcd.print("|      |");
       } else {
-        for (int i = 1; i <= quantidadeConfig; i++) {
+        for (int i = 1; (i <= quantidadeConfig) && (j1 <= 3); i++) {
           if (mfcFromK[i] == 1) {
             lcd.setCursor(2, j1);
             switch (messageFromK[0]) {
@@ -957,7 +961,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(4, 3);
         lcd.print("|      |");
       } else {
-        for (int i = 1; i <= quantidadeConfig; i++) {
+        for (int i = 1; i <= quantidadeConfig && (j1 <= 3); i++) {
           if (mfcFromK[i] == 2) {
             lcd.setCursor(2, j2);
             switch (messageFromK[0]) {
