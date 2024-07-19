@@ -318,9 +318,9 @@ void parseData(int source, int mfc = 0) {  // Converte dados inseridos para cont
 
 
         float timeInMinutes = atof(inputBufferK);
-        int minutes = (int)timeInMinutes;                    // Parte inteira dos minutos
-        float seconds = (timeInMinutes - minutes);           // Parte fracionária convertida para segundos
-        timeFromK[configIndex] = minutes + (seconds / 0.6);  // Converte tudo para milissegundos
+        int minutes = (int)timeInMinutes;                      // Parte inteira dos minutos
+        float seconds = (timeInMinutes - minutes);             // Parte fracionária convertida para segundos
+        timeFromK[configIndex] = (minutes + (seconds / 0.6));  // Converte tudo para milissegundos
 
         // Serial.println("Dados: ");
         // Serial.print("A: ");
@@ -401,10 +401,6 @@ void timer(int timerNum) {  //
       timeFromK[mfcIndex] = totalTime;
       configIndex++;
       count++;
-      if (count >= 2) {
-        count = 5;
-        quantidadeConfig--;
-      }
       SPFlux = 0;
       timerInit = true;
       digitalWrite(BUZZER, HIGH);
@@ -513,7 +509,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Modo Configuracao:");
+        lcd.print(" Modo Config:");
         lcd.setCursor(0, 1);
         lcd.print(" B -> Voltar");
         lcd.setCursor(0, 2);
@@ -523,7 +519,6 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         digitalWrite(BUZZER, HIGH);
         delay(200);
         digitalWrite(BUZZER, LOW);
-        delay(4800);
 
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           timeFromK[i] = '\0';
@@ -557,6 +552,8 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         event = infoFlux;  // volta para a de informação de fluxo
       } else if (event == selectMFC) {
         event -= 2;
+        configIndex = 1;
+        quantidadeConfig = 0;
       } else if (event == infoFlux) {
         event = infoMFC2;
       } else {
@@ -862,8 +859,8 @@ void printToLcd() {  // Imprime no LCD
           }
           lcd.print(floatFromK[i], 1);
           lcd.print(",");
-          minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
-          seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+          minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
+          seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
           lcd.print(minutes);
           lcd.print(":");
           if (seconds < 10) {
@@ -936,7 +933,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(4, 3);
         lcd.print("|      |");
       } else {
-        for (int i = 1; (i <= quantidadeConfig) && (j1 <= 3); i++) {
+        for (int i = 1; (i <= quantidadeConfig); i++) {
           if (mfcFromK[i] == 1) {
             lcd.setCursor(2, j1);
             switch (messageFromK[0]) {
@@ -998,7 +995,7 @@ void printToLcd() {  // Imprime no LCD
         lcd.setCursor(4, 3);
         lcd.print("|      |");
       } else {
-        for (int i = 1; i <= quantidadeConfig && (j1 <= 3); i++) {
+        for (int i = 1; i <= quantidadeConfig; i++) {
           if (mfcFromK[i] == 2) {
             lcd.setCursor(2, j2);
             switch (messageFromK[0]) {
