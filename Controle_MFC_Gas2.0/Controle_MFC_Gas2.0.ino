@@ -165,7 +165,7 @@ Keypad keypad = Keypad(makeKeymap(TECLAS_MATRIZ), PINOS_LINHAS,
 //Pinagem MFC 2
 #define SPFlux2_Pin 4
 #define Vopen2_Pin 5
-#define Flux2_Pin A1
+#define Flux2_Pin A2
 /*
 //Pinagem MFC 3
 #define SPFlux3_Pin 7
@@ -384,8 +384,6 @@ void timer(int timerNum) {  //
       totalTime = 0;
     }
 
-    Serial.print("totalTime");
-    Serial.println(totalTime);
     timerInit = false;
   } else if (totalTime > 0) {
     if (timeFromK[mfcIndex] > 0) {
@@ -496,17 +494,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         }
         messageIndex = 0;
         lcd.clear();
-      }
-      readInProgress = false;
-    }
-
-    if (key == clearMarker) {  // Tecla C, apaga último caractere
-      if (event < infoFlux) {
-        if (messageIndex > 0) {  // caso array não nulo
-          inputBufferK[--messageIndex] = '\0';
-        }
-      } else if (event >= infoFlux) {  // Situação contrária a anterior
-
+      } else {  // Situação contrária a anterior
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print(" Modo Config:");
@@ -517,8 +505,9 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         lcd.setCursor(0, 3);
         lcd.print(" D -> Submeter");
         digitalWrite(BUZZER, HIGH);
-        delay(200);
+        delay(100);
         digitalWrite(BUZZER, LOW);
+        delay(1000);
 
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           timeFromK[i] = '\0';
@@ -531,7 +520,16 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         quantidadeConfig = 0;
       }
       readInProgress = false;
-      lcd.clear();
+    }
+
+    if (key == clearMarker) {  // Tecla C, apaga último caractere
+      if (event < infoFlux) {
+        if (messageIndex > 0) {  // caso array não nulo
+          inputBufferK[--messageIndex] = '\0';
+        }
+        readInProgress = false;
+        lcd.clear();
+      }
     }
 
     if (key == backMarker) {  // Tecla B, volta para tela anterior
@@ -859,7 +857,7 @@ void printToLcd() {  // Imprime no LCD
           }
           lcd.print(floatFromK[i], 1);
           lcd.print(",");
-          minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
+          minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
           seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
           lcd.print(minutes);
           lcd.print(":");
@@ -954,7 +952,7 @@ void printToLcd() {  // Imprime no LCD
             lcd.setCursor(11, j1);
             lcd.print("|");
             minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
-            seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+            seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
             lcd.print(minutes);
             lcd.print(":");
             if (seconds < 10) {
