@@ -336,8 +336,6 @@ void parseData(int source, int mfc = 0) {  // Converte dados inseridos para cont
   if (source == arduinoTimer) {
     strcpy(messageFromUser[mfc], messageFromK);
     intFromUser = mfc;
-    Serial.print("messageFromUser ");
-    Serial.println(messageFromUser[mfc]);
 
     if (mfc == 1) {
       floatFromUser[mfc] = floatFromK[mfc1Index];
@@ -404,8 +402,8 @@ void timer(int timerNum) {  //
       digitalWrite(BUZZER, HIGH);
       delay(200);
       digitalWrite(BUZZER, LOW);
+      delay(100);
     } else {  // acabou o processo
-      count++;
       SPFlux = 0;
       timeFromK[mfcIndex] = totalTime;
       totalTime = 0;
@@ -857,7 +855,7 @@ void printToLcd() {  // Imprime no LCD
           }
           lcd.print(floatFromK[i], 1);
           lcd.print(",");
-          minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
+          minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
           seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
           lcd.print(minutes);
           lcd.print(":");
@@ -951,7 +949,7 @@ void printToLcd() {  // Imprime no LCD
             lcd.print(floatFromK[i], 1);
             lcd.setCursor(11, j1);
             lcd.print("|");
-            minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
+            minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
             seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
             lcd.print(minutes);
             lcd.print(":");
@@ -959,7 +957,7 @@ void printToLcd() {  // Imprime no LCD
               lcd.print("0");  // Para garantir que sempre mostre dois dígitos para segundos
             }
             lcd.print(seconds);
-            if (j1 <= count1) {
+            if (j1 <= count1 || ((totalTime1 == 0) && (quantidadeConfig > 0))) {
               lcd.setCursor(17, j1);
               lcd.print("+");
             }
@@ -1145,13 +1143,7 @@ void configMFC(int mfcNum) {  // Atualiza valores nas MFCs
   float* SPFlux_Out = (mfcNum == 1) ? SPFlux1_Out : SPFlux2_Out;
   char* message = messageFromUser[mfcNum];
 
-  if (SPMFC_update) {
-    Serial.print("chegou ");
-    Serial.println(mfcNum);
-    SPFlux = floatFromUser[mfcNum];
-    Serial.print("floatFromUser[mfcNum] ");
-    Serial.println(floatFromUser[mfcNum]);
-  }
+  if (SPMFC_update) { SPFlux = floatFromUser[mfcNum]; }
   if (FluxMaxMFC_update) { Flux_Max = floatFromUser[mfcNum]; }
   if (FatorMFC_update) { Fator_MFC = floatFromUser[mfcNum]; }
   if (FatorGas_update) { Fator_Gas_MFC = floatFromUser[mfcNum]; }
