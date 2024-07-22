@@ -51,19 +51,20 @@ Alterar:
 
 #define QTD_MFC 2
 
-int event = 6,     // Indice começa mostrando informações do fluxo
-  firstPrint = 0,  // Evita delay na transição para a tela "infoFlux"
-  j1 = 0, j2 = 0, minutes = 0, seconds = 0;
-
 const int
   pc = 1,
   arduino = 2,  // Fonte dos dados inseridos
   arduinoTimer = 3,
-  config = 1, qtdConfig = 2, selectMFC = 3, insertData = 4,  // Telas de interação do display
-  insertTime = 5, infoFlux = 6,
+  config = 1, qtdConfigMFC1 = 2, qtdConfigMFC2 = 3, selectMFC = 4, insertData = 5,  // Telas de interação do display
+  insertTime = 6, infoFlux = 7,
   //  infoFlux2 = 8,
-  infoConfigMFC1 = 7, infoConfigMFC2 = 8, infoMFC1 = 9, infoMFC2 = 10;  // Telas com informações dos MFCs
+  infoConfigMFC1 = 8, infoConfigMFC2 = 9, infoMFC1 = 10, infoMFC2 = 11;  // Telas com informações dos MFCs
 //  infoMFC3 = 10;
+
+int event = infoFlux,  // Indice começa mostrando informações do fluxo
+  firstPrint = 0,      // Evita delay na transição para a tela "infoFlux"
+  j1 = 0, j2 = 0, minutes = 0, seconds = 0;
+
 
 const char
   point = '#',
@@ -94,6 +95,8 @@ char
 int
   mfcFromK[buffSizeK] = { 0 },  // MFC selecionada pelo teclado
   quantidadeConfig = 0,         //
+  quantidadeConfigMFC1 = 0,     //
+  quantidadeConfigMFC2 = 0,     //
   configIndex = 1,              //
   timeFromUser = 0,             //
   intFromUser = 0,              // MFC selecionada pelo serial   ?
@@ -254,18 +257,93 @@ bool validData(char* buffer) {  // Realiza validação dos dados inseridos no te
   switch (event) {
     case config:
       ret = ((input >= 1) && (input <= 4));  // Só permite seleção de 1 a 4 no menu principal
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Erro: Valor       |");
+        lcd.setCursor(0, 2);
+        lcd.print("|             1 a 4|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
       break;
-    case qtdConfig:
-      ret = ((input >= 1) && (input <= 4));  // maximo de configs
+    case qtdConfigMFC1:
+      ret = ((input >= 0) && (input <= 3));  // maximo de configs
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Erro: Valor Maximo|");
+        lcd.setCursor(0, 2);
+        lcd.print("|         3 por MFC|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
+      break;
+    case qtdConfigMFC2:
+      ret = ((input >= 0) && (input <= 3));  // maximo de configs
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Erro: Valor Maximo|");
+        lcd.setCursor(0, 2);
+        lcd.print("|         3 por MFC|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
       break;
     case selectMFC:
-      ret = (input == 1 || input == 2);  // Só permite selecionar entre MFCs 1 e 2
+      ret = ((input >= 1) && (input <= 2));  // maximo de configs
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Erro: Valor       |");
+        lcd.setCursor(0, 2);
+        lcd.print("|            1 ou 2|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
       break;
     case insertData:
       ret = ((input >= 0) && (input <= 2000));  // numero máximo de entrada de valor
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Erro: Valor Maximo|");
+        lcd.setCursor(0, 2);
+        lcd.print("|              2000|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
       break;
     case insertTime:
       ret = ((input >= 0.1) && (input <= 999) && ((input - (int)input) < 0.6));
+      if (!ret) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("*------------------*");
+        lcd.setCursor(0, 1);
+        lcd.print("|Err: Valor Min/Max|");
+        lcd.setCursor(0, 2);
+        lcd.print("|           0.1/999|");
+        lcd.setCursor(0, 3);
+        lcd.print("*------------------*");
+        delay(2000);
+      }
       break;
     default:
       ret = true;
@@ -298,8 +376,21 @@ void parseData(int source, int mfc = 0) {  // Converte dados inseridos para cont
         strcpy(messageFromK, inputBufferK);
         break;
 
-      case qtdConfig:
-        quantidadeConfig = atoi(inputBufferK);
+      case qtdConfigMFC1:
+        quantidadeConfigMFC1 = atoi(inputBufferK);
+        break;
+
+      case qtdConfigMFC2:
+        quantidadeConfigMFC2 = atoi(inputBufferK);
+        quantidadeConfig = quantidadeConfigMFC1 + quantidadeConfigMFC2;
+
+        for (int i = 1; i <= quantidadeConfigMFC1; i++) {
+          mfcFromK[i] = 1;
+        }
+        for (int i = 1 + quantidadeConfigMFC1; i <= quantidadeConfig; i++) {
+          mfcFromK[i] = 2;
+        }
+
         break;
 
       case selectMFC:
@@ -315,7 +406,6 @@ void parseData(int source, int mfc = 0) {  // Converte dados inseridos para cont
         }
         break;
       case insertTime:
-
 
         float timeInMinutes = atof(inputBufferK);
         int minutes = (int)timeInMinutes;                      // Parte inteira dos minutos
@@ -455,13 +545,24 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
           parseData(arduino);
           newDataFromPC = true;
 
-          if (event == config) {
-            quantidadeConfig = 1;
-          }
-
-          if (event == config || event == insertData) {
+          if (event == qtdConfigMFC2) {
+            if (quantidadeConfig == 0) {
+              lcd.clear();
+              lcd.setCursor(0, 1);
+              lcd.print("Insira valor nao nulo");
+              delay(1000);
+              event--;
+            }
+            delay(200);
+            event = insertData;
+          } else if (event == config || event == insertData) {
             if (messageFromK[0] != '1') {
-              event += 2;
+              if (event == config) {
+                quantidadeConfig = 1;
+                event = selectMFC;
+              } else if (event == insertData) {
+                event = infoFlux;
+              }
             } else {
               event++;
             }
@@ -470,7 +571,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
               digitalWrite(BUZZER, HIGH);
               delay(200);
               digitalWrite(BUZZER, LOW);
-              event = selectMFC;
+              event = insertData;
               configIndex++;
             } else {
               configIndex = 1;
@@ -481,11 +582,6 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
           } else {
             event++;  // Passa para próxima tela
           }
-        } else {  // Se dado invalido
-          lcd.clear();
-          lcd.setCursor(0, 1);
-          lcd.print("Numero invalido");
-          delay(1000);
         }
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           inputBufferK[i] = '\0';
@@ -505,7 +601,7 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         digitalWrite(BUZZER, HIGH);
         delay(100);
         digitalWrite(BUZZER, LOW);
-        delay(1000);
+        delay(4000);
 
         for (int i = 0; i < buffSizeK; i++) {  // Limpa buffer
           timeFromK[i] = '\0';
@@ -516,6 +612,8 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
         configIndex = 1;
         messageIndex = 0;
         quantidadeConfig = 0;
+        quantidadeConfigMFC1 = 0;
+        quantidadeConfigMFC2 = 0;
       }
       readInProgress = false;
     }
@@ -545,11 +643,21 @@ void getDataFromKeyboard() {  // Recebe data do teclado e salva no buffer
 
       if (event == config) {  // Se tela for de configuração,
         quantidadeConfig = 0;
+        quantidadeConfigMFC1 = 0;
+        quantidadeConfigMFC2 = 0;
         event = infoFlux;  // volta para a de informação de fluxo
       } else if (event == selectMFC) {
-        event -= 2;
-        configIndex = 1;
-        quantidadeConfig = 0;
+        event = config;
+      } else if (event == insertData) {
+        if (messageFromK[0] == '1') {
+          event = config;
+          configIndex = 1;
+          quantidadeConfig = 0;
+          quantidadeConfigMFC1 = 0;
+          quantidadeConfigMFC2 = 0;
+        } else {
+          event--;
+        }
       } else if (event == infoFlux) {
         event = infoMFC2;
       } else {
@@ -719,7 +827,7 @@ void printMFCInfo(int index, float SPFlux, float Flux_Max, float Fator_MFC, floa
 
 void printToLcd() {  // Imprime no LCD
 
-  if ((event > qtdConfig) && (event < infoFlux)) {
+  if ((event > qtdConfigMFC2) && (event < infoFlux)) {
     lcd.setCursor(17, 0);
     lcd.print("CFG");
     lcd.setCursor(19, 1);
@@ -736,23 +844,41 @@ void printToLcd() {  // Imprime no LCD
     case config:
       printConfigOptions();
       break;
-    case qtdConfig:
+    case qtdConfigMFC1:
       lcd.setCursor(0, 0);
-      lcd.print("*------------------*");
+      lcd.print("*--Qtd Setpoints---*");
       lcd.setCursor(0, 1);
-      lcd.print("| Qtd setpoints");
-      lcd.setCursor(1, 2);
-      lcd.print("->");
-      lcd.print(inputBufferK);
+      lcd.print("|");
       lcd.setCursor(19, 1);
       lcd.print("|");
       lcd.setCursor(0, 2);
+      lcd.print("|->MFC1:");
+      lcd.print(inputBufferK);
+      lcd.setCursor(12, 2);
+      lcd.print("MFC2:  |");
+      lcd.setCursor(0, 3);
+      lcd.print("*------------------*");
+      break;
+
+    case qtdConfigMFC2:
+      lcd.setCursor(0, 0);
+      lcd.print("*--Qtd Setpoints---*");
+      lcd.setCursor(0, 1);
       lcd.print("|");
+      lcd.setCursor(19, 1);
+      lcd.print("|");
+      lcd.setCursor(0, 2);
+      lcd.print("|  MFC1:");
+      lcd.print(quantidadeConfigMFC1);
+      lcd.setCursor(10, 2);
+      lcd.print("->MFC2:");
+      lcd.print(inputBufferK);
       lcd.setCursor(19, 2);
       lcd.print("|");
       lcd.setCursor(0, 3);
       lcd.print("*------------------*");
       break;
+
     case selectMFC:
       lcd.setCursor(0, 1);
       lcd.print("-> ");
@@ -771,10 +897,10 @@ void printToLcd() {  // Imprime no LCD
           break;
       }
       lcd.print(",");
-      lcd.print("MFC:");
+      lcd.print("MFC");
       lcd.print(inputBufferK);
-      lcd.print("");
       break;
+
     case insertData:
       lcd.setCursor(0, 1);
       lcd.print("-> ");
@@ -834,27 +960,28 @@ void printToLcd() {  // Imprime no LCD
       break;
 
     case infoFlux:
-      if (SPMFC1_update || SPMFC2_update || FluxMaxMFC1_update || FluxMaxMFC2_update || FatorMFC1_update || FatorMFC2_update || FatorGas1_update || FatorGas2_update) {
-        for (int i = 1; i <= quantidadeConfig; i++) {
-          lcd.setCursor(1, i - 1);
-          lcd.print(mfcFromK[i]);
-          lcd.print(",");
+      if (SPMFC1_update || FluxMaxMFC1_update || FatorMFC1_update || FatorGas1_update) {
+        lcd.print("MFC1| Val  | Time ");
+        for (int i = 1; i <= (quantidadeConfig - quantidadeConfigMFC2); i++) {
+          lcd.setCursor(2, i);
           switch (messageFromK[0]) {
             case '1':
-              lcd.print("SP,");
+              lcd.print("SP");
               break;
             case '2':
-              lcd.print("Mx,");
+              lcd.print("Mx");
               break;
             case '3':
-              lcd.print("FM,");
+              lcd.print("FM");
               break;
             case '4':
-              lcd.print("FG,");
+              lcd.print("FG");
               break;
           }
+          lcd.print("|");
           lcd.print(floatFromK[i], 1);
-          lcd.print(",");
+          lcd.setCursor(11, i);
+          lcd.print("|");
           minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
           seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
           lcd.print(minutes);
@@ -867,11 +994,44 @@ void printToLcd() {  // Imprime no LCD
         digitalWrite(BUZZER, HIGH);
         delay(200);
         digitalWrite(BUZZER, LOW);
-        delay(100);
+        delay(4000);
+        lcd.clear();
+      }
+      if (SPMFC2_update || FluxMaxMFC2_update || FatorMFC2_update || FatorGas2_update) {
+        lcd.print("MFC2| Val  | Time ");
+        for (int i = 1; i <= (quantidadeConfig - quantidadeConfigMFC1); i++) {
+          lcd.setCursor(2, i);
+          switch (messageFromK[0]) {
+            case '1':
+              lcd.print("SP");
+              break;
+            case '2':
+              lcd.print("Mx");
+              break;
+            case '3':
+              lcd.print("FM");
+              break;
+            case '4':
+              lcd.print("FG");
+              break;
+          }
+          lcd.print("|");
+          lcd.print(floatFromK[i + quantidadeConfigMFC1], 1);
+          lcd.setCursor(11, i);
+          lcd.print("|");
+          minutes = (int)timeFromK[i + quantidadeConfigMFC1];                           // Parte inteira dos minutos
+          seconds = (int)roundf((timeFromK[i + quantidadeConfigMFC1] - minutes) * 60);  // Parte fracionária convertida para segundos
+          lcd.print(minutes);
+          lcd.print(":");
+          if (seconds < 10) {
+            lcd.print("0");  // Para garantir que sempre mostre dois dígitos para segundos
+          }
+          lcd.print(seconds);
+        }
         digitalWrite(BUZZER, HIGH);
         delay(200);
         digitalWrite(BUZZER, LOW);
-        delay(2000);
+        delay(4000);
         lcd.clear();
       }
 
@@ -1011,8 +1171,8 @@ void printToLcd() {  // Imprime no LCD
             lcd.print(floatFromK[i], 1);
             lcd.setCursor(11, j2);
             lcd.print("|");
-            minutes = (int)timeFromK[i];                     // Parte inteira dos minutos
-            seconds = (int)((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
+            minutes = (int)timeFromK[i];                           // Parte inteira dos minutos
+            seconds = (int)roundf((timeFromK[i] - minutes) * 60);  // Parte fracionária convertida para segundos
             lcd.print(minutes);
             lcd.print(":");
             if (seconds < 10) {
